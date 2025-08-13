@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import {GreetService} from "@bindings/changeme";
+import {GreetService} from "@bindings/changeme/backend";
 import {Events, WML} from "@wailsio/runtime";
 
 import { Input } from "@/components/ui/input"
