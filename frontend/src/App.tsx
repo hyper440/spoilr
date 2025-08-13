@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
-import {GreetService} from "../bindings/changeme";
+import {GreetService} from "@bindings/changeme";
 import {Events, WML} from "@wailsio/runtime";
+
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 function App() {
   const [name, setName] = useState<string>('');
@@ -28,7 +31,7 @@ function App() {
   }, []);
 
   return (
-    <div className="container">
+    <div className="container bg-background">
       <div>
         <a data-wml-openURL="https://wails.io">
           <img src="/wails.png" className="logo" alt="Wails logo"/>
@@ -39,10 +42,10 @@ function App() {
       </div>
       <h1>Wails + React</h1>
       <div className="result">{result}</div>
-      <div className="card">
+      <div className="card ">
         <div className="input-box">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} type="text" autoComplete="off"/>
-          <button className="btn" onClick={doGreet}>Greet</button>
+          <Input className="input" value={name} onChange={(e) => setName(e.target.value)} type="text" autoComplete="off"/>
+          <Button className="btn" onClick={doGreet}>Greet</Button>
         </div>
       </div>
       <div className="footer">
