@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -23,7 +24,6 @@ type SpoilerService struct {
 	movies     []Movie
 	settings   AppSettings
 	template   string
-	nextID     int
 	processing bool
 	cancelCtx  context.Context
 	cancelFn   context.CancelFunc
@@ -42,7 +42,6 @@ func NewSpoilerService() *SpoilerService {
 			ScreenshotQuality: 2,
 		},
 		template:   getDefaultTemplate(),
-		nextID:     1,
 		processing: false,
 	}
 }
@@ -79,7 +78,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		}
 
 		movie := Movie{
-			ID:              s.nextID,
+			ID:              uuid.New().String(), // Generate new UUID
 			FileName:        filepath.Base(path),
 			FilePath:        path,
 			FileSize:        formatFileSize(fileInfo.Size()),
@@ -88,7 +87,6 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 			ScreenshotURLs:  make([]string, 0),
 			ProcessingState: StatePending,
 		}
-		s.nextID++
 		s.movies = append(s.movies, movie)
 	}
 
@@ -96,7 +94,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	return nil
 }
 
-func (s *SpoilerService) RemoveMovie(id int) {
+func (s *SpoilerService) RemoveMovie(id string) {
 	for i, movie := range s.movies {
 		if movie.ID == id {
 			s.movies = append(s.movies[:i], s.movies[i+1:]...)
@@ -105,7 +103,6 @@ func (s *SpoilerService) RemoveMovie(id int) {
 	}
 	s.emitState()
 }
-
 func (s *SpoilerService) ClearMovies() {
 	s.movies = make([]Movie, 0)
 	s.emitState()
@@ -126,8 +123,18 @@ func (s *SpoilerService) StartProcessing() error {
 	s.emitState()
 
 	go func() {
+		// Use a defer to ensure processing is always set to false when done
 		defer func() {
 			s.processing = false
+
+			// Reset any movies that are still in processing states back to pending
+			for i := range s.movies {
+				if s.movies[i].ProcessingState != StateCompleted && s.movies[i].ProcessingState != StateError {
+					s.movies[i].ProcessingState = StatePending
+					s.movies[i].ProcessingError = ""
+				}
+			}
+
 			s.emitState()
 		}()
 
@@ -140,6 +147,8 @@ func (s *SpoilerService) StartProcessing() error {
 				err := s.processMovie(movie.ID)
 				if err != nil {
 					log.Printf("Error processing movie %s: %v", movie.FileName, err)
+					// Continue with next movie even if one fails
+					continue
 				}
 			}
 		}
@@ -148,6 +157,31 @@ func (s *SpoilerService) StartProcessing() error {
 	return nil
 }
 
+// ReorderMovies updates the order of movies in the backend to match the provided order
+func (s *SpoilerService) ReorderMovies(newOrder []string) error {
+	// Create a map of ID to movie for quick lookup
+	movieMap := make(map[string]Movie)
+	for _, movie := range s.movies {
+		movieMap[movie.ID] = movie
+	}
+
+	// Verify all IDs in new order exist
+	for _, id := range newOrder {
+		if _, exists := movieMap[id]; !exists {
+			return fmt.Errorf("movie with ID %s not found", id)
+		}
+	}
+
+	// Rebuild the movies slice in the new order
+	var reorderedMovies []Movie
+	for _, id := range newOrder {
+		reorderedMovies = append(reorderedMovies, movieMap[id])
+	}
+
+	s.movies = reorderedMovies
+	s.emitState()
+	return nil
+}
 func (s *SpoilerService) CancelProcessing() {
 	if s.cancelFn != nil {
 		s.cancelFn()
@@ -166,13 +200,23 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 	return pending
 }
 
-func (s *SpoilerService) processMovie(movieID int) error {
+func (s *SpoilerService) processMovie(movieID string) error {
 	movieIndex := s.findMovieIndex(movieID)
 	if movieIndex == -1 {
 		return fmt.Errorf("movie not found")
 	}
 
 	movie := &s.movies[movieIndex]
+
+	// Check for cancellation before starting
+	select {
+	case <-s.cancelCtx.Done():
+		movie.ProcessingState = StatePending
+		movie.ProcessingError = ""
+		s.emitState()
+		return fmt.Errorf("processing cancelled before starting")
+	default:
+	}
 
 	// Update state to analyzing
 	movie.ProcessingState = StateAnalyzingMedia
@@ -181,11 +225,19 @@ func (s *SpoilerService) processMovie(movieID int) error {
 	// Get media info
 	mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
 	if err != nil {
-		movie.ProcessingState = StateError
-		movie.ProcessingError = err.Error()
+		// Check if it was cancelled
+		if s.cancelCtx.Err() != nil {
+			movie.ProcessingState = StatePending
+			movie.ProcessingError = ""
+		} else {
+			movie.ProcessingState = StateError
+			movie.ProcessingError = err.Error()
+		}
 		s.emitState()
 		return err
 	}
+
+	// ... (existing media info extraction code remains the same) ...
 
 	// Extract basic info
 	if duration, ok := mediaInfo.General["duration"]; ok {
@@ -250,18 +302,45 @@ func (s *SpoilerService) processMovie(movieID int) error {
 
 	// Generate screenshots if fastpic SID is configured
 	if s.settings.ScreenshotCount > 0 {
+		// Check for cancellation before screenshots
+		select {
+		case <-s.cancelCtx.Done():
+			movie.ProcessingState = StatePending
+			movie.ProcessingError = ""
+			s.emitState()
+			return fmt.Errorf("processing cancelled before screenshots")
+		default:
+		}
+
 		// Update state to generating screenshots
 		movie.ProcessingState = StateGeneratingScreenshots
 		s.emitState()
 
 		screenshotURLs, albumURL, err := s.generateAndUploadScreenshots(movie.FilePath)
 		if err != nil {
+			// Check if it was cancelled
+			if s.cancelCtx.Err() != nil {
+				movie.ProcessingState = StatePending
+				movie.ProcessingError = ""
+				s.emitState()
+				return fmt.Errorf("screenshot processing cancelled")
+			}
 			log.Printf("Screenshot generation/upload failed for %s: %v", movie.FilePath, err)
 			// Don't fail the entire processing, just log the error
 		} else {
 			movie.ScreenshotURLs = screenshotURLs
 			movie.ScreenshotAlbum = albumURL
 		}
+	}
+
+	// Final check for cancellation
+	select {
+	case <-s.cancelCtx.Done():
+		movie.ProcessingState = StatePending
+		movie.ProcessingError = ""
+		s.emitState()
+		return fmt.Errorf("processing cancelled before completion")
+	default:
 	}
 
 	movie.ProcessingState = StateCompleted
@@ -271,7 +350,7 @@ func (s *SpoilerService) processMovie(movieID int) error {
 	return nil
 }
 
-func (s *SpoilerService) findMovieIndex(id int) int {
+func (s *SpoilerService) findMovieIndex(id string) int {
 	for i, movie := range s.movies {
 		if movie.ID == id {
 			return i
@@ -303,6 +382,13 @@ func (s *SpoilerService) generateAndUploadScreenshots(filePath string) ([]string
 	interval := duration / float64(s.settings.ScreenshotCount+1)
 
 	for i := 1; i <= s.settings.ScreenshotCount; i++ {
+		// Check for cancellation before generating each screenshot
+		select {
+		case <-s.cancelCtx.Done():
+			return nil, "", fmt.Errorf("screenshot generation cancelled: %v", s.cancelCtx.Err())
+		default:
+		}
+
 		timestamp := interval * float64(i)
 		screenshotPath := filepath.Join(tempDir, fmt.Sprintf("screenshot_%d.jpg", i))
 
@@ -327,8 +413,15 @@ func (s *SpoilerService) generateAndUploadScreenshots(filePath string) ([]string
 		s.emitState()
 	}
 
-	// Get fastpic upload ID
-	uploadID, err := fastpicService.getFastpicUploadID()
+	// Check for cancellation before getting upload ID
+	select {
+	case <-s.cancelCtx.Done():
+		return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
+	default:
+	}
+
+	// Get fastpic upload ID with context
+	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
@@ -338,13 +431,25 @@ func (s *SpoilerService) generateAndUploadScreenshots(filePath string) ([]string
 	var albumURL string
 
 	for i, screenshotPath := range screenshotPaths {
+		// Check for cancellation before each upload
+		select {
+		case <-s.cancelCtx.Done():
+			return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
+		default:
+		}
+
 		fileName := fmt.Sprintf("%s_screenshot_%d.jpg", strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)), i+1)
 
 		log.Printf("Uploading screenshot %d/%d: %s", i+1, len(screenshotPaths), fileName)
 
-		result, err := fastpicService.uploadToFastpic(screenshotPath, fileName, uploadID)
+		// Upload with context
+		result, err := fastpicService.uploadToFastpic(s.cancelCtx, screenshotPath, fileName, uploadID)
 		if err != nil {
 			log.Printf("Failed to upload screenshot %s: %v", fileName, err)
+			// If cancelled, return immediately
+			if s.cancelCtx.Err() != nil {
+				return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
+			}
 			continue
 		}
 
@@ -374,7 +479,7 @@ func (s *SpoilerService) findMovieIndexByPath(filePath string) int {
 }
 
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
-	cmd := exec.Command("ffprobe",
+	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
 		"-v", "quiet",
 		"-show_entries", "format=duration",
 		"-of", "csv=p=0",
@@ -383,6 +488,10 @@ func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
 
 	output, err := cmd.Output()
 	if err != nil {
+		// Check if error is due to context cancellation
+		if s.cancelCtx.Err() != nil {
+			return 0, fmt.Errorf("duration check cancelled: %v", s.cancelCtx.Err())
+		}
 		return 0, fmt.Errorf("ffprobe command failed: %v", err)
 	}
 
@@ -395,7 +504,7 @@ func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
 }
 
 func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timestamp float64) error {
-	cmd := exec.Command("ffmpeg",
+	cmd := exec.CommandContext(s.cancelCtx, "ffmpeg",
 		"-ss", fmt.Sprintf("%.2f", timestamp),
 		"-i", videoPath,
 		"-vframes", "1",
@@ -406,6 +515,10 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 
 	err := cmd.Run()
 	if err != nil {
+		// Check if error is due to context cancellation
+		if s.cancelCtx.Err() != nil {
+			return fmt.Errorf("screenshot generation cancelled: %v", s.cancelCtx.Err())
+		}
 		return fmt.Errorf("ffmpeg command failed: %v", err)
 	}
 
@@ -413,7 +526,7 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 }
 
 func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, error) {
-	cmd := exec.Command("ffprobe",
+	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
@@ -423,6 +536,10 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 
 	output, err := cmd.Output()
 	if err != nil {
+		// Check if error is due to context cancellation
+		if s.cancelCtx.Err() != nil {
+			return MediaInfo{}, fmt.Errorf("media analysis cancelled: %v", s.cancelCtx.Err())
+		}
 		return MediaInfo{}, fmt.Errorf("ffprobe failed: %v", err)
 	}
 
@@ -499,7 +616,6 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 
 	return mediaInfo, nil
 }
-
 func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) {
 	var files []string
 	videoExtensions := map[string]bool{
@@ -544,7 +660,7 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 }
 
 // GenerateResultForMovie generates spoiler for a single movie
-func (s *SpoilerService) GenerateResultForMovie(movieID int) string {
+func (s *SpoilerService) GenerateResultForMovie(movieID string) string {
 	var movie *Movie
 	for _, m := range s.movies {
 		if m.ID == movieID {

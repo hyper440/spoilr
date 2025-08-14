@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider"
 import { useState, useEffect } from 'react'
-import { SpoilerService, AppSettings, AppState } from "@bindings/changeme/backend"
+import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/changeme/backend"
 import { Events, WML } from "@wailsio/runtime"
 
 import DropZone from './components/DropZone'
@@ -65,6 +65,8 @@ function App() {
     }
   }
 
+
+
   const startProcessing = async () => {
     try {
       await SpoilerService.StartProcessing()
@@ -89,7 +91,7 @@ function App() {
     }
   }
 
-  const removeMovie = async (id: number) => {
+  const removeMovie = async (id: string) => {
     try {
       await SpoilerService.RemoveMovie(id)
     } catch (error) {
@@ -116,7 +118,7 @@ function App() {
     }
   }
 
-  const copyMovieResult = async (movieId: number) => {
+  const copyMovieResult = async (movieId: string) => {
     try {
       const result = await SpoilerService.GenerateResultForMovie(movieId)
       await navigator.clipboard.writeText(result)
@@ -134,7 +136,17 @@ function App() {
     }
   }
 
-  const completedMovies = state.movies?.filter(m => m.processingState === 'completed') || []
+  const onReorderMovies = async (newMovies: Movie[]) => {
+    try {
+        // Extract just the IDs in the new order
+        const newOrder = newMovies.map(movie => movie.id);
+        await SpoilerService.ReorderMovies(newOrder);
+        // State will be updated via the event listener
+    } catch (error) {
+        console.error('Failed to reorder movies:', error);
+    }
+};
+
   const pendingMovies = state.movies?.filter(m => m.processingState === 'pending') || []
   const hasMovies = (state.movies?.length || 0) > 0
 
@@ -154,8 +166,6 @@ function App() {
               onCancelTemplate={() => setEditingTemplate(false)}
               settings={settings}
               onUpdateSettings={updateSettings}
-              completedMovies={completedMovies}
-              onCopyAllResults={copyAllResults}
             />
 
             {editingTemplate && (
@@ -168,16 +178,19 @@ function App() {
             {!hasMovies ? (
               <DropZone />
             ) : (
-              <MovieTable
-                movies={state.movies}
-                processing={state.processing}
-                pendingCount={pendingMovies.length}
-                onStartProcessing={startProcessing}
-                onCancelProcessing={cancelProcessing}
-                onClearMovies={clearMovies}
-                onRemoveMovie={removeMovie}
-                onCopyMovieResult={copyMovieResult}
-              />
+          <MovieTable
+            movies={state.movies}
+            processing={state.processing}
+            pendingCount={pendingMovies.length}
+            onStartProcessing={startProcessing}
+            onCancelProcessing={cancelProcessing}
+            onClearMovies={clearMovies}
+            onRemoveMovie={removeMovie}
+            onCopyMovieResult={copyMovieResult}
+            onCopyAllResults={copyAllResults}
+            onReorderMovies={onReorderMovies}
+          />
+
             )}
           </div>
         </div>

@@ -35,7 +35,7 @@ export function GenerateResult(): $CancellablePromise<string> {
 /**
  * GenerateResultForMovie generates spoiler for a single movie
  */
-export function GenerateResultForMovie(movieID: number): $CancellablePromise<string> {
+export function GenerateResultForMovie(movieID: string): $CancellablePromise<string> {
     return $Call.ByID(2420383732, movieID);
 }
 
@@ -67,8 +67,15 @@ export function GetTemplate(): $CancellablePromise<string> {
     return $Call.ByID(841079811);
 }
 
-export function RemoveMovie(id: number): $CancellablePromise<void> {
+export function RemoveMovie(id: string): $CancellablePromise<void> {
     return $Call.ByID(2824633037, id);
+}
+
+/**
+ * ReorderMovies updates the order of movies in the backend to match the provided order
+ */
+export function ReorderMovies(newOrder: string[]): $CancellablePromise<void> {
+    return $Call.ByID(3360971939, newOrder);
 }
 
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {

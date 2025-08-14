@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button"
-import { Copy, Edit } from "lucide-react"
-import { Movie, AppSettings } from "@bindings/changeme/backend"
+import { Edit } from "lucide-react"
+import {  AppSettings } from "@bindings/changeme/backend"
 import SettingsPopover from './SettingsPopover'
+import AnimatedText from "@/components/AnimatedText"
 
 interface HeaderProps {
   editingTemplate: boolean
@@ -10,8 +11,6 @@ interface HeaderProps {
   onCancelTemplate: () => void
   settings: AppSettings
   onUpdateSettings: (settings: Partial<AppSettings>) => void
-  completedMovies: Movie[]
-  onCopyAllResults: () => void
 }
 
 export default function Header({
@@ -21,12 +20,10 @@ export default function Header({
   onCancelTemplate,
   settings,
   onUpdateSettings,
-  completedMovies,
-  onCopyAllResults
 }: HeaderProps) {
   return (
     <div className="flex items-center justify-between mb-6">
-      <h1 className="text-3xl font-bold text-white">Spoiler List Generator</h1>
+      <AnimatedText>Spoiler List Generator</AnimatedText>
       <div className="flex items-center gap-4">
         {/* Template Editor Toggle */}
         {!editingTemplate ? (
@@ -51,17 +48,6 @@ export default function Header({
 
         {/* Settings Popover */}
         <SettingsPopover settings={settings} onUpdateSettings={onUpdateSettings} />
-
-        {/* Copy All Button */}
-        {completedMovies.length > 0 && (
-          <Button 
-            onClick={onCopyAllResults}
-            className="bg-gradient-to-r from-green-600 to-emerald-600"
-          >
-            <Copy className="w-4 h-4 mr-2" />
-            Copy All ({completedMovies.length})
-          </Button>
-        )}
       </div>
     </div>
   )

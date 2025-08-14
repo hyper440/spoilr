@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,10 +25,10 @@ func NewFastpicService(sid string) *FastpicService {
 	return &FastpicService{sid: sid}
 }
 
-func (f *FastpicService) getFastpicUploadID() (string, error) {
+func (f *FastpicService) getFastpicUploadID(ctx context.Context) (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 
-	req, err := http.NewRequest("GET", "https://new.fastpic.org/", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://new.fastpic.org/", nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
 	}
@@ -40,6 +41,10 @@ func (f *FastpicService) getFastpicUploadID() (string, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		// Check if error is due to context cancellation
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("request cancelled: %v", ctx.Err())
+		}
 		return "", fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
@@ -96,7 +101,7 @@ func (f *FastpicService) getFastpicUploadID() (string, error) {
 }
 
 // uploadToFastpic uploads image to fastpic
-func (f *FastpicService) uploadToFastpic(filePath, fileName, uploadID string) (*FastpicUploadResult, error) {
+func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName, uploadID string) (*FastpicUploadResult, error) {
 	log.Printf("Starting upload of %s to fastpic...", fileName)
 
 	if _, err := os.Stat(filePath); err != nil {
@@ -145,7 +150,7 @@ func (f *FastpicService) uploadToFastpic(filePath, fileName, uploadID string) (*
 
 	writer.Close()
 
-	req, err := http.NewRequest("POST", "https://new.fastpic.org/v2upload/", &buffer)
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://new.fastpic.org/v2upload/", &buffer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -161,6 +166,10 @@ func (f *FastpicService) uploadToFastpic(filePath, fileName, uploadID string) (*
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		// Check if error is due to context cancellation
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("upload cancelled: %v", ctx.Err())
+		}
 		return nil, fmt.Errorf("upload request failed: %v", err)
 	}
 	defer resp.Body.Close()

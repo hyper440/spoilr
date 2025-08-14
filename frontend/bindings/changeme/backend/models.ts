@@ -89,7 +89,7 @@ export class AppState {
  * Movie represents a media file with its metadata
  */
 export class Movie {
-    "id": number;
+    "id": string;
     "fileName": string;
     "filePath": string;
     "fileSize": string;
@@ -119,7 +119,7 @@ export class Movie {
     /** Creates a new Movie instance. */
     constructor($$source: Partial<Movie> = {}) {
         if (!("id" in $$source)) {
-            this["id"] = 0;
+            this["id"] = "";
         }
         if (!("fileName" in $$source)) {
             this["fileName"] = "";

@@ -2,7 +2,7 @@ package backend
 
 // Movie represents a media file with its metadata
 type Movie struct {
-	ID              int               `json:"id"`
+	ID              string            `json:"id"`
 	FileName        string            `json:"fileName"`
 	FilePath        string            `json:"filePath"`
 	FileSize        string            `json:"fileSize"`
