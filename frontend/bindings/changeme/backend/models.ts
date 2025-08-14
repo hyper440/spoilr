@@ -142,7 +142,7 @@ export class Movie {
     "params": { [_: string]: string };
 
     /**
-     * "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
+     * State constants defined below
      */
     "processingState": string;
 

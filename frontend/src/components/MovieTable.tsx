@@ -195,10 +195,22 @@ export default function MovieTable({
             Analyzing Media
           </Badge>
         );
+      case "waiting_for_screenshot_slot":
+        return (
+          <Badge variant="outline" className="border-orange-400/50 text-orange-400">
+            Waiting for Screenshot Slot
+          </Badge>
+        );
       case "generating_screenshots":
         return (
           <Badge variant="outline" className="border-purple-400/50 text-purple-400">
             Generating Screenshots
+          </Badge>
+        );
+      case "waiting_for_upload_slot":
+        return (
+          <Badge variant="outline" className="border-amber-400/50 text-amber-400">
+            Waiting for Upload Slot
           </Badge>
         );
       case "uploading_screenshots":

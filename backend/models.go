@@ -21,18 +21,20 @@ type Movie struct {
 	ThumbnailURL      string            `json:"thumbnailUrl"`    // BBThumb URL
 	ThumbnailBigURL   string            `json:"thumbnailBigUrl"` // BBBig URL
 	Params            map[string]string `json:"params"`
-	ProcessingState   string            `json:"processingState"`           // "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
+	ProcessingState   string            `json:"processingState"`           // State constants defined below
 	ProcessingError   string            `json:"processingError,omitempty"` // Error details if processing fails
 }
 
 // Processing state constants
 const (
-	StatePending               = "pending"
-	StateAnalyzingMedia        = "analyzing_media"
-	StateGeneratingScreenshots = "generating_screenshots"
-	StateUploadingScreenshots  = "uploading_screenshots"
-	StateCompleted             = "completed"
-	StateError                 = "error"
+	StatePending                  = "pending"
+	StateAnalyzingMedia           = "analyzing_media"
+	StateWaitingForScreenshotSlot = "waiting_for_screenshot_slot"
+	StateGeneratingScreenshots    = "generating_screenshots"
+	StateWaitingForUploadSlot     = "waiting_for_upload_slot"
+	StateUploadingScreenshots     = "uploading_screenshots"
+	StateCompleted                = "completed"
+	StateError                    = "error"
 )
 
 // AppState represents the current application state
