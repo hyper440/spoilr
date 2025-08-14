@@ -4,7 +4,7 @@ go 1.24.0
 
 toolchain go1.24.6
 
-require github.com/wailsapp/wails/v3 v3.0.0-alpha.20
+require github.com/wailsapp/wails/v3 v3.0.0-alpha.18
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
