@@ -5,7 +5,6 @@ import { Events, WML } from "@wailsio/runtime";
 
 import DropZone from "./components/DropZone";
 import MovieTable from "./components/MovieTable";
-import TemplateEditor from "./components/TemplateEditor";
 import Header from "./components/Header";
 
 function App() {
@@ -23,7 +22,6 @@ function App() {
     screenshotQuality: 2,
   });
   const [template, setTemplate] = useState("");
-  const [editingTemplate, setEditingTemplate] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -97,10 +95,10 @@ function App() {
     }
   };
 
-  const saveTemplate = async () => {
+  const saveTemplate = async (newTemplate: string) => {
     try {
-      await SpoilerService.SetTemplate(template);
-      setEditingTemplate(false);
+      await SpoilerService.SetTemplate(newTemplate);
+      setTemplate(newTemplate);
     } catch (error) {
       console.error("Failed to save template:", error);
     }
@@ -157,16 +155,7 @@ function App() {
       >
         <div className="relative z-10 container mx-auto p-6 max-w-7xl">
           <div className="backdrop-blur-xl bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl">
-            <Header
-              editingTemplate={editingTemplate}
-              onEditTemplate={() => setEditingTemplate(true)}
-              onSaveTemplate={saveTemplate}
-              onCancelTemplate={() => setEditingTemplate(false)}
-              settings={settings}
-              onUpdateSettings={updateSettings}
-            />
-
-            {editingTemplate && <TemplateEditor template={template} onTemplateChange={setTemplate} />}
+            <Header template={template} onTemplateChange={saveTemplate} settings={settings} onUpdateSettings={updateSettings} />
 
             {!hasMovies ? (
               <DropZone />
