@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Trash2, Copy, FileVideo2Icon, AlertCircle, Move } from "lucide-react";
 import { SpoilerService, Movie } from "@bindings/changeme/backend";
 
@@ -55,13 +56,11 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      // Remove {...listeners} from here
       className={`border-white/5 hover:bg-white/2 relative ${selectedMovie?.id === movie.id ? "bg-purple-500/10" : ""}`}
       onClick={() => setSelectedMovie(movie)}
       onMouseEnter={() => movie.processingState === "completed" && handleRowHover(movie.id)}
     >
       <TableCell className="text-slate-300 flex items-center gap-2">
-        {/* Move drag listeners to just the handle */}
         <div {...listeners} className="cursor-grab hover:cursor-grabbing">
           <Move className="w-4 h-4" />
         </div>
@@ -75,7 +74,7 @@ function SortableRow({
               <HoverCardTrigger asChild>
                 <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
               </HoverCardTrigger>
-              <HoverCardContent className="w-96 bg-black/90 border-white/10" side="right">
+              <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-white">Spoiler Preview</h4>
                   <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
@@ -85,12 +84,18 @@ function SortableRow({
               </HoverCardContent>
             </HoverCard>
           ) : (
-            <span className="inline-block w-full truncate" title={movie.fileName}>
-              {movie.fileName}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-block w-full truncate">{movie.fileName}</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{movie.fileName}</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </TableCell>
+
       <TableCell className="text-slate-300">{movie.fileSize}</TableCell>
       <TableCell className="text-slate-300">{movie.duration}</TableCell>
       <TableCell className="text-slate-300">
@@ -215,8 +220,15 @@ export default function MovieTable({
               Error
             </Badge>
             {processingError && (
-              <div className="text-xs text-red-400" title={processingError}>
-                <AlertCircle className="w-3 h-3" />
+              <div className="text-xs text-red-400">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertCircle className="w-3 h-3 cursor-pointer" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{processingError}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>

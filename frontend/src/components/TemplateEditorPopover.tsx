@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Edit, RotateCcw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TemplateEditorProps {
   template: string;
@@ -50,7 +51,6 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
   const handleParamClick = (param: string) => {
     const start = cursorPosition;
     const end = cursorPosition;
-
     const newValue = currentTemplate.substring(0, start) + param + currentTemplate.substring(end);
     setCurrentTemplate(newValue);
     setCursorPosition(start + param.length);
@@ -110,15 +110,18 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
             <p className="text-sm text-muted-foreground">Available parameters:</p>
             <div className="flex flex-wrap gap-2">
               {templateParams.map((param) => (
-                <Badge
-                  key={param.name}
-                  variant="secondary"
-                  className="cursor-pointer hover:bg-secondary/80"
-                  onClick={() => handleParamClick(param.name)}
-                  title={param.description}
-                >
-                  {param.name}
-                </Badge>
+                <Tooltip key={param.name}>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => handleParamClick(param.name)}>
+                        {param.name}
+                      </Badge>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{param.description}</p>
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
           </div>
