@@ -200,25 +200,38 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	}
 	s.emitState()
 
-	// Second pass: get media info for each movie
-	for i := range s.movies {
-		movie := &s.movies[i]
-		if movie.ProcessingState != StateAnalyzingMedia {
-			continue
-		}
+	// Second pass: process media info concurrently with state updates
+	var wg sync.WaitGroup
+	var mu sync.Mutex // Protects state updates
 
-		mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
-		if err != nil {
-			log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
-			movie.ProcessingState = StateError
-			movie.ProcessingError = err.Error()
-		} else {
-			s.extractMediaInfo(movie, mediaInfo)
-			movie.ProcessingState = StatePending
-		}
-		s.emitState() // Emit state after each file is processed
+	for i := range s.movies {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+
+			movie := &s.movies[index]
+			if movie.ProcessingState != StateAnalyzingMedia {
+				return
+			}
+
+			mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
+				movie.ProcessingState = StateError
+				movie.ProcessingError = err.Error()
+			} else {
+				s.extractMediaInfo(movie, mediaInfo)
+				movie.ProcessingState = StatePending
+			}
+			s.emitState() // Emit state after each file is processed
+		}(i)
 	}
 
+	wg.Wait()
 	return nil
 }
 
@@ -328,6 +341,13 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	}
 	defer os.RemoveAll(tempDir)
 
+	// Get upload ID once for all movies
+	fastpicService := NewFastpicService(s.settings.FastpicSID)
+	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
+	if err != nil {
+		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
+	}
+
 	log.Printf("Starting concurrent media processing for %d movies (screenshot limit: %d, upload limit: %d)",
 		len(pendingMovies), s.settings.MaxConcurrentScreenshots, s.settings.MaxConcurrentUploads)
 
@@ -337,7 +357,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		wg.Add(1)
 		go func(movie Movie) {
 			defer wg.Done()
-			s.processMovieWithLimits(movie, tempDir)
+			s.processMovieWithLimits(movie, tempDir, uploadID)
 		}(movie)
 	}
 
@@ -345,7 +365,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	return nil
 }
 
-func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string) {
+func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, uploadID string) {
 	// Update status to waiting for screenshot slot
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.ProcessingState = StateWaitingForScreenshotSlot
@@ -402,7 +422,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string) {
 	s.emitState()
 
 	// Upload media with concurrency limits
-	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths)
+	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, uploadID)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -539,15 +559,8 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 }
 
 // Upload media with proper concurrency control
-// Upload media with proper concurrency control
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string) (string, string, []string, []string, string, error) {
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, uploadID string) (string, string, []string, []string, string, error) {
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
-
-	// Get upload ID
-	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
-	if err != nil {
-		return "", "", nil, nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
-	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
