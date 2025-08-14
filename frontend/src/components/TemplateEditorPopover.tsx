@@ -39,6 +39,7 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%AUDIO_CODEC%", description: "Audio codec name (e.g., aac, mp3)" },
     { name: "%SCREENSHOTS%", description: "Screenshots separated by newlines" },
     { name: "%SCREENSHOTS_SPACED%", description: "Screenshots separated by spaces" },
+    { name: "%THUMBNAIL%", description: "Movie thumbnail grid generated with mtn" },
   ];
 
   const handleOpenChange = (open: boolean) => {

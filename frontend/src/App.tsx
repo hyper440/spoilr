@@ -2,6 +2,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { useState, useEffect } from "react";
 import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/changeme/backend";
 import { Events, WML } from "@wailsio/runtime";
+import { toast } from "sonner";
 
 import DropZone from "./components/DropZone";
 import MovieTable from "./components/MovieTable";
@@ -37,7 +38,16 @@ function App() {
       setState(newState as AppState);
     };
 
+    const handleMtnMissing = (ev: any) => {
+      const data = Array.isArray(ev.data) ? ev.data[0] : ev.data;
+      toast.error("MTN Missing", {
+        description: data.message || "Movie Thumbnailer (MTN) is not installed. Thumbnail generation will be skipped.",
+        duration: 8000,
+      });
+    };
+
     Events.On("state", handleStateUpdate);
+    Events.On("mtn-missing", handleMtnMissing);
 
     // Load initial state immediately
     SpoilerService.GetState().then(setState).catch(console.error);
@@ -46,6 +56,7 @@ function App() {
 
     return () => {
       Events.Off("state");
+      Events.Off("mtn-missing");
     };
   }, []);
 

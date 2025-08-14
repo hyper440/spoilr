@@ -120,6 +120,11 @@ export class Movie {
     "audioCodec": string;
     "screenshotUrls": string[];
     "screenshotAlbum": string;
+
+    /**
+     * URL of the mtn-generated thumbnail
+     */
+    "thumbnailUrl": string;
     "params": { [_: string]: string };
 
     /**
@@ -179,6 +184,9 @@ export class Movie {
         if (!("screenshotAlbum" in $$source)) {
             this["screenshotAlbum"] = "";
         }
+        if (!("thumbnailUrl" in $$source)) {
+            this["thumbnailUrl"] = "";
+        }
         if (!("params" in $$source)) {
             this["params"] = {};
         }
@@ -194,13 +202,13 @@ export class Movie {
      */
     static createFrom($$source: any = {}): Movie {
         const $$createField13_0 = $$createType2;
-        const $$createField15_0 = $$createType3;
+        const $$createField16_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
         }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField15_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField16_0($$parsedSource["params"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }

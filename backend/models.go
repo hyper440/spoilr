@@ -17,6 +17,7 @@ type Movie struct {
 	AudioCodec      string            `json:"audioCodec"`
 	ScreenshotURLs  []string          `json:"screenshotUrls"`
 	ScreenshotAlbum string            `json:"screenshotAlbum"`
+	ThumbnailURL    string            `json:"thumbnailUrl"` // URL of the mtn-generated thumbnail
 	Params          map[string]string `json:"params"`
 	ProcessingState string            `json:"processingState"`           // "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
 	ProcessingError string            `json:"processingError,omitempty"` // Error details if processing fails

@@ -78,6 +78,8 @@ Video: %VIDEO_CODEC% @ %VIDEO_BIT_RATE%
 Audio: %AUDIO_CODEC% @ %AUDIO_BIT_RATE%
 Overall Bitrate: %BIT_RATE%
 
+%THUMBNAIL%
+
 %SCREENSHOTS%
 [/spoiler]`
 }
@@ -301,405 +303,242 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		return nil
 	}
 
-	if s.settings.ScreenshotCount <= 0 {
-		// No screenshots needed, mark all as completed
-		for _, movie := range pendingMovies {
-			s.updateMovieByID(movie.ID, func(m *Movie) {
-				m.ProcessingState = StateCompleted
-			})
-		}
-		s.emitState()
-		return nil
-	}
-
-	// Create temp directory for all screenshots - cleanup after everything is done
-	tempDir, err := os.MkdirTemp("", "screenshots_*")
+	// Create temp directory for all screenshots and thumbnails - cleanup after everything is done
+	tempDir, err := os.MkdirTemp("", "media_processing_*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Phase 1: Generate all screenshots for all movies concurrently
-	log.Printf("Starting concurrent screenshot generation for %d movies", len(pendingMovies))
+	log.Printf("Starting concurrent media processing for %d movies", len(pendingMovies))
 
-	// Update all movies to generating screenshots state
+	// Process each movie independently
+	var wg sync.WaitGroup
 	for _, movie := range pendingMovies {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateGeneratingScreenshots
-		})
-	}
-	s.emitState()
-
-	screenshotResults, err := s.generateAllScreenshotsConcurrently(pendingMovies, tempDir)
-	if err != nil {
-		return err
+		wg.Add(1)
+		go func(movie Movie) {
+			defer wg.Done()
+			s.processMovieIndividually(movie, tempDir)
+		}(movie)
 	}
 
-	// Phase 2: Upload all screenshots concurrently
-	log.Printf("Starting concurrent screenshot uploads")
-
-	// Update movies with generated screenshots to uploading state
-	for movieID := range screenshotResults {
-		s.updateMovieByID(movieID, func(m *Movie) {
-			m.ProcessingState = StateUploadingScreenshots
-		})
-	}
-	s.emitState()
-
-	err = s.uploadAllScreenshotsConcurrently(screenshotResults)
-	if err != nil {
-		return err
-	}
-
-	// Mark all successfully processed movies as completed
-	for _, movie := range pendingMovies {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			if m.ProcessingState != StateError {
-				m.ProcessingState = StateCompleted
-			}
-		})
-	}
-	s.emitState()
-
+	wg.Wait()
 	return nil
 }
 
-type movieScreenshotJob struct {
-	movieID    string
-	moviePath  string
-	index      int
-	timestamp  float64
-	outputPath string
-}
+func (s *SpoilerService) processMovieIndividually(movie Movie, tempDir string) {
+	// Update status to generating screenshots
+	s.updateMovieByID(movie.ID, func(m *Movie) {
+		m.ProcessingState = StateGeneratingScreenshots
+	})
+	s.emitState()
 
-type movieScreenshotResult struct {
-	movieID string
-	index   int
-	path    string
-	err     error
-}
+	// Create movie-specific temp directory
+	movieTempDir := filepath.Join(tempDir, movie.ID)
+	if err := os.MkdirAll(movieTempDir, 0755); err != nil {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ProcessingState = StateError
+			m.ProcessingError = fmt.Sprintf("Failed to create temp directory: %v", err)
+		})
+		s.emitState()
+		return
+	}
 
-type movieScreenshotCollection struct {
-	paths    []string
-	duration float64
-}
+	// Get video duration
+	duration, err := s.getVideoDuration(movie.FilePath)
+	if err != nil {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ProcessingState = StateError
+			m.ProcessingError = fmt.Sprintf("Failed to get duration: %v", err)
+		})
+		s.emitState()
+		return
+	}
 
-func (s *SpoilerService) generateAllScreenshotsConcurrently(movies []Movie, tempDir string) (map[string]movieScreenshotCollection, error) {
-
-	// Collect all screenshot jobs from all movies
-	var allJobs []movieScreenshotJob
-	movieDurations := make(map[string]float64)
-
-	for _, movie := range movies {
-		// Get video duration
-		duration, err := s.getVideoDuration(movie.FilePath)
+	// Generate thumbnail
+	var thumbnailPath string
+	if strings.Contains(s.template, "%THUMBNAIL%") {
+		thumbnailPath, err = s.generateMovieThumbnail(movie.FilePath, movieTempDir)
 		if err != nil {
-			log.Printf("Failed to get duration for %s: %v", movie.FileName, err)
-			s.updateMovieByID(movie.ID, func(m *Movie) {
-				m.ProcessingState = StateError
-				m.ProcessingError = fmt.Sprintf("Failed to get duration: %v", err)
+			log.Printf("Failed to generate thumbnail for %s: %v", movie.FileName, err)
+		}
+	}
+
+	// Generate screenshots
+	var screenshotPaths []string
+	if s.settings.ScreenshotCount > 0 {
+		screenshotPaths, err = s.generateMovieScreenshots(movie.FilePath, movieTempDir, duration)
+		if err != nil {
+			log.Printf("Failed to generate screenshots for %s: %v", movie.FileName, err)
+		}
+	}
+
+	// Check if we have anything to upload
+	if thumbnailPath == "" && len(screenshotPaths) == 0 {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ProcessingState = StateError
+			m.ProcessingError = "No media generated"
+		})
+		s.emitState()
+		return
+	}
+
+	// Update status to uploading
+	s.updateMovieByID(movie.ID, func(m *Movie) {
+		m.ProcessingState = StateUploadingScreenshots
+	})
+	s.emitState()
+
+	// Upload media
+	thumbnailURL, screenshotURLs, albumURL, err := s.uploadMovieMedia(movie, thumbnailPath, screenshotPaths)
+	if err != nil {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ProcessingState = StateError
+			m.ProcessingError = fmt.Sprintf("Upload failed: %v", err)
+		})
+		s.emitState()
+		return
+	}
+
+	// Update movie with results
+	s.updateMovieByID(movie.ID, func(m *Movie) {
+		m.ThumbnailURL = thumbnailURL
+		m.ScreenshotURLs = screenshotURLs
+		m.ScreenshotAlbum = albumURL
+		m.ProcessingState = StateCompleted
+	})
+	s.emitState()
+
+	log.Printf("Successfully processed movie: %s", movie.FileName)
+}
+
+func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (string, error) {
+	// Check if mtn is available before trying to use it
+	if _, err := exec.LookPath("mtn"); err != nil {
+		// Emit event that mtn is missing (only once per processing session)
+		if s.app != nil {
+			s.app.Event.Emit("mtn-missing", map[string]string{
+				"message": "MTN (Movie Thumbnailer) is not installed or not found in PATH. Thumbnail generation will be skipped.",
 			})
+		}
+		log.Printf("MTN not found, skipping thumbnail generation for %s", filepath.Base(videoPath))
+		return "", nil // Return empty string to skip thumbnail
+	}
+
+	cmd := exec.CommandContext(s.cancelCtx, "mtn",
+		"-b", "2", // border width
+		"-w", "1200", // width
+		"-c", "4", // columns
+		"-r", "4", // rows
+		"-g", "0", // gap between thumbnails
+		"-k", "1C1C1C", // background color
+		"-L", "4:2", // font size info:timestamp
+		"-F", "F0FFFF:10", // font color:shadow
+		"-O", tempDir, // output directory
+		"-q",      // quiet
+		videoPath, // input path (no -P flag needed)
+	)
+
+	err := cmd.Run()
+	if err != nil {
+		if s.cancelCtx.Err() != nil {
+			return "", fmt.Errorf("thumbnail generation cancelled: %v", s.cancelCtx.Err())
+		}
+		return "", fmt.Errorf("mtn command failed: %v", err)
+	}
+
+	// mtn creates files based on video filename
+	videoBasename := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+
+	// List all files in temp directory to debug
+	files, err := os.ReadDir(tempDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read temp directory: %v", err)
+	}
+
+	// Look for any .jpg files that match the pattern
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".jpg") {
+			if strings.HasPrefix(file.Name(), videoBasename) {
+				return filepath.Join(tempDir, file.Name()), nil
+			}
+		}
+	}
+
+	// If no exact match, take the first .jpg file (mtn should only create one)
+	for _, file := range files {
+		if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".jpg") {
+			return filepath.Join(tempDir, file.Name()), nil
+		}
+	}
+
+	return "", fmt.Errorf("thumbnail file not found after generation - no .jpg files in %s", tempDir)
+}
+
+func (s *SpoilerService) generateMovieScreenshots(videoPath, tempDir string, duration float64) ([]string, error) {
+	var screenshotPaths []string
+	interval := duration / float64(s.settings.ScreenshotCount+1)
+
+	for i := 0; i < s.settings.ScreenshotCount; i++ {
+		timestamp := interval * float64(i+1)
+		outputPath := filepath.Join(tempDir, fmt.Sprintf("screenshot_%d.jpg", i+1))
+
+		err := s.generateScreenshot(videoPath, outputPath, timestamp)
+		if err != nil {
+			log.Printf("Failed to generate screenshot %d: %v", i+1, err)
 			continue
 		}
 
-		movieDurations[movie.ID] = duration
-		interval := duration / float64(s.settings.ScreenshotCount+1)
-
-		// Create movie-specific temp directory
-		movieTempDir := filepath.Join(tempDir, movie.ID)
-		if err := os.MkdirAll(movieTempDir, 0755); err != nil {
-			log.Printf("Failed to create temp dir for %s: %v", movie.FileName, err)
-			continue
-		}
-
-		// Add jobs for this movie
-		for i := 0; i < s.settings.ScreenshotCount; i++ {
-			timestamp := interval * float64(i+1)
-			outputPath := filepath.Join(movieTempDir, fmt.Sprintf("screenshot_%d.jpg", i+1))
-
-			allJobs = append(allJobs, movieScreenshotJob{
-				movieID:    movie.ID,
-				moviePath:  movie.FilePath,
-				index:      i,
-				timestamp:  timestamp,
-				outputPath: outputPath,
-			})
-		}
+		screenshotPaths = append(screenshotPaths, outputPath)
 	}
 
-	if len(allJobs) == 0 {
-		return nil, fmt.Errorf("no screenshot jobs to process")
-	}
-
-	log.Printf("Generating %d total screenshots across %d movies with %d parallel workers",
-		len(allJobs), len(movies), s.settings.MaxConcurrentScreenshots)
-
-	// Process all jobs concurrently
-	jobs := make(chan movieScreenshotJob, len(allJobs))
-	results := make(chan movieScreenshotResult, len(allJobs))
-
-	// Start workers
-	var wg sync.WaitGroup
-	maxWorkers := s.settings.MaxConcurrentScreenshots
-	if maxWorkers <= 0 {
-		maxWorkers = 1
-	}
-
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for job := range jobs {
-				select {
-				case <-s.cancelCtx.Done():
-					results <- movieScreenshotResult{movieID: job.movieID, index: job.index, err: fmt.Errorf("cancelled")}
-					return
-				default:
-				}
-
-				err := s.generateScreenshot(job.moviePath, job.outputPath, job.timestamp)
-				results <- movieScreenshotResult{
-					movieID: job.movieID,
-					index:   job.index,
-					path:    job.outputPath,
-					err:     err,
-				}
-			}
-		}()
-	}
-
-	// Send all jobs
-	go func() {
-		defer close(jobs)
-		for _, job := range allJobs {
-			jobs <- job
-		}
-	}()
-
-	// Collect results
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Organize results by movie
-	movieResults := make(map[string]movieScreenshotCollection)
-	for _, movie := range movies {
-		movieResults[movie.ID] = movieScreenshotCollection{
-			paths:    make([]string, s.settings.ScreenshotCount),
-			duration: movieDurations[movie.ID],
-		}
-	}
-
-	successCount := 0
-	for result := range results {
-		if result.err != nil {
-			if s.cancelCtx.Err() != nil {
-				return nil, fmt.Errorf("screenshot generation cancelled")
-			}
-			log.Printf("Failed to generate screenshot %d for movie %s: %v", result.index+1, result.movieID, result.err)
-			continue
-		}
-
-		if collection, exists := movieResults[result.movieID]; exists {
-			collection.paths[result.index] = result.path
-			movieResults[result.movieID] = collection
-			successCount++
-		}
-	}
-
-	log.Printf("Generated %d/%d screenshots successfully", successCount, len(allJobs))
-
-	// Remove movies that have no successful screenshots
-	for movieID, collection := range movieResults {
-		hasAnyScreenshots := false
-		for _, path := range collection.paths {
-			if path != "" {
-				hasAnyScreenshots = true
-				break
-			}
-		}
-		if !hasAnyScreenshots {
-			delete(movieResults, movieID)
-			s.updateMovieByID(movieID, func(m *Movie) {
-				m.ProcessingState = StateError
-				m.ProcessingError = "No screenshots generated"
-			})
-		}
-	}
-
-	return movieResults, nil
+	return screenshotPaths, nil
 }
 
-type movieUploadJob struct {
-	movieID  string
-	index    int
-	path     string
-	fileName string
-	uploadID string
-}
-
-type movieUploadResult struct {
-	movieID string
-	index   int
-	result  *FastpicUploadResult
-	err     error
-}
-
-func (s *SpoilerService) uploadAllScreenshotsConcurrently(screenshotResults map[string]movieScreenshotCollection) error {
+func (s *SpoilerService) uploadMovieMedia(movie Movie, thumbnailPath string, screenshotPaths []string) (string, []string, string, error) {
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
 
-	// Get upload ID once for all uploads
+	// Get upload ID
 	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
-		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
+		return "", nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
 
-	// Collect all upload jobs from all movies
-	var allUploadJobs []movieUploadJob
-	totalJobs := 0
+	var thumbnailURL, albumURL string
+	var screenshotURLs []string
 
-	for movieID, collection := range screenshotResults {
-		movie, exists := s.getMovieByID(movieID)
-		if !exists {
+	baseFileName := strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath))
+
+	// Upload thumbnail if exists
+	if thumbnailPath != "" {
+		fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
+		result, err := fastpicService.uploadToFastpic(s.cancelCtx, thumbnailPath, fileName, uploadID)
+		if err != nil {
+			log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
+		} else {
+			thumbnailURL = result.BBThumb
+			if albumURL == "" {
+				albumURL = result.AlbumLink
+			}
+		}
+	}
+
+	// Upload screenshots
+	for i, screenshotPath := range screenshotPaths {
+		fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, i+1)
+		result, err := fastpicService.uploadToFastpic(s.cancelCtx, screenshotPath, fileName, uploadID)
+		if err != nil {
+			log.Printf("Failed to upload screenshot %d for %s: %v", i+1, movie.FileName, err)
 			continue
 		}
 
-		for i, screenshotPath := range collection.paths {
-			if screenshotPath == "" { // Skip failed screenshots
-				continue
-			}
-
-			fileName := fmt.Sprintf("%s_screenshot_%d.jpg",
-				strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath)), i+1)
-
-			allUploadJobs = append(allUploadJobs, movieUploadJob{
-				movieID:  movieID,
-				index:    i,
-				path:     screenshotPath,
-				fileName: fileName,
-				uploadID: uploadID,
-			})
-			totalJobs++
+		screenshotURLs = append(screenshotURLs, result.BBThumb)
+		if albumURL == "" {
+			albumURL = result.AlbumLink
 		}
 	}
 
-	if totalJobs == 0 {
-		return fmt.Errorf("no screenshots to upload")
-	}
-
-	log.Printf("Uploading %d total screenshots with %d parallel workers",
-		totalJobs, s.settings.MaxConcurrentUploads)
-
-	// Process uploads concurrently
-	uploadJobs := make(chan movieUploadJob, totalJobs)
-	uploadResults := make(chan movieUploadResult, totalJobs)
-
-	// Start upload workers
-	var uploadWg sync.WaitGroup
-	maxUploadWorkers := s.settings.MaxConcurrentUploads
-	if maxUploadWorkers <= 0 {
-		maxUploadWorkers = 1
-	}
-
-	for i := 0; i < maxUploadWorkers; i++ {
-		uploadWg.Add(1)
-		go func() {
-			defer uploadWg.Done()
-			for job := range uploadJobs {
-				select {
-				case <-s.cancelCtx.Done():
-					uploadResults <- movieUploadResult{movieID: job.movieID, index: job.index, err: fmt.Errorf("cancelled")}
-					return
-				default:
-				}
-
-				log.Printf("Uploading %s (movie %s, screenshot %d)", job.fileName, job.movieID[:8], job.index+1)
-				result, err := fastpicService.uploadToFastpic(s.cancelCtx, job.path, job.fileName, job.uploadID)
-				uploadResults <- movieUploadResult{
-					movieID: job.movieID,
-					index:   job.index,
-					result:  result,
-					err:     err,
-				}
-			}
-		}()
-	}
-
-	// Send upload jobs
-	go func() {
-		defer close(uploadJobs)
-		for _, job := range allUploadJobs {
-			uploadJobs <- job
-		}
-	}()
-
-	// Collect upload results
-	go func() {
-		uploadWg.Wait()
-		close(uploadResults)
-	}()
-
-	// Organize results by movie
-	movieUploadData := make(map[string]struct {
-		urls     []string
-		albumURL string
-	})
-
-	for movieID := range screenshotResults {
-		movieUploadData[movieID] = struct {
-			urls     []string
-			albumURL string
-		}{
-			urls: make([]string, s.settings.ScreenshotCount),
-		}
-	}
-
-	successCount := 0
-	for result := range uploadResults {
-		if result.err != nil {
-			if s.cancelCtx.Err() != nil {
-				return fmt.Errorf("upload cancelled")
-			}
-			log.Printf("Failed to upload screenshot %d for movie %s: %v", result.index+1, result.movieID, result.err)
-			continue
-		}
-
-		if data, exists := movieUploadData[result.movieID]; exists {
-			data.urls[result.index] = result.result.BBThumb
-			if data.albumURL == "" {
-				data.albumURL = result.result.AlbumLink
-			}
-			movieUploadData[result.movieID] = data
-			successCount++
-		}
-
-		log.Printf("Successfully uploaded screenshot %d for movie %s", result.index+1, result.movieID[:8])
-	}
-
-	log.Printf("Successfully uploaded %d/%d screenshots", successCount, totalJobs)
-
-	// Update movies with upload results
-	for movieID, data := range movieUploadData {
-		// Filter out empty URLs and create final list
-		var finalURLs []string
-		for _, url := range data.urls {
-			if url != "" {
-				finalURLs = append(finalURLs, url)
-			}
-		}
-
-		s.updateMovieByID(movieID, func(m *Movie) {
-			m.ScreenshotURLs = finalURLs
-			m.ScreenshotAlbum = data.albumURL
-			if len(finalURLs) == 0 {
-				m.ProcessingState = StateError
-				m.ProcessingError = "No screenshots uploaded successfully"
-			}
-		})
-	}
-
-	return nil
+	return thumbnailURL, screenshotURLs, albumURL, nil
 }
 
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
@@ -927,6 +766,13 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_BIT_RATE%", movie.AudioBitRate)
 	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
+
+	// Handle thumbnail
+	if movie.ThumbnailURL != "" {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ThumbnailURL)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "")
+	}
 
 	// Handle screenshots with newline separator
 	if len(movie.ScreenshotURLs) > 0 {
