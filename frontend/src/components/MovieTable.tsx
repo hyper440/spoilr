@@ -1,35 +1,35 @@
-import React, { useState, forwardRef } from 'react'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Trash2, Copy, FileVideo2Icon,  AlertCircle, Move } from "lucide-react"
-import { SpoilerService, Movie } from "@bindings/changeme/backend"
+import React, { useState, forwardRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Trash2, Copy, FileVideo2Icon, AlertCircle, Move } from "lucide-react";
+import { SpoilerService, Movie } from "@bindings/changeme/backend";
 
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
-import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface MovieTableProps {
-  movies: Movie[]
-  processing: boolean
-  pendingCount: number
-  onStartProcessing: () => void
-  onCancelProcessing: () => void
-  onClearMovies: () => void
-  onRemoveMovie: (id: string) => void
-  onCopyMovieResult: (id: string) => void
-  onCopyAllResults: () => void
-  onReorderMovies: (newMovies: Movie[]) => void
+  movies: Movie[];
+  processing: boolean;
+  pendingCount: number;
+  onStartProcessing: () => void;
+  onCancelProcessing: () => void;
+  onClearMovies: () => void;
+  onRemoveMovie: (id: string) => void;
+  onCopyMovieResult: (id: string) => void;
+  onCopyAllResults: () => void;
+  onReorderMovies: (newMovies: Movie[]) => void;
 }
 
 // Forward ref to real <tr> element so DnD works
-const TableRowWrapper = forwardRef<HTMLTableRowElement, React.ComponentProps<'tr'>>((props, ref) => {
-  return <tr ref={ref} {...props} />
-})
-TableRowWrapper.displayName = "TableRowWrapper"
+const TableRowWrapper = forwardRef<HTMLTableRowElement, React.ComponentProps<"tr">>((props, ref) => {
+  return <tr ref={ref} {...props} />;
+});
+TableRowWrapper.displayName = "TableRowWrapper";
 
 // Sortable row
 function SortableRow({
@@ -37,18 +37,18 @@ function SortableRow({
   index,
   selectedMovie,
   setSelectedMovie,
-  hoveredMovieId,
+  localSpoilers,
   handleRowHover,
   onRemoveMovie,
   onCopyMovieResult,
-  getProcessingBadge
+  getProcessingBadge,
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: movie.id })
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: movie.id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  }
+  };
 
   return (
     <TableRowWrapper
@@ -58,7 +58,7 @@ function SortableRow({
       // Remove {...listeners} from here
       className={`border-white/5 hover:bg-white/2 relative ${selectedMovie?.id === movie.id ? "bg-purple-500/10" : ""}`}
       onClick={() => setSelectedMovie(movie)}
-      onMouseEnter={() => movie.processingState === 'completed' && handleRowHover(movie.id)}
+      onMouseEnter={() => movie.processingState === "completed" && handleRowHover(movie.id)}
     >
       <TableCell className="text-slate-300 flex items-center gap-2">
         {/* Move drag listeners to just the handle */}
@@ -70,21 +70,16 @@ function SortableRow({
 
       <TableCell className="font-medium text-white">
         <div className="max-w-[500px] truncate">
-          {movie.processingState === 'completed' ? (
+          {movie.processingState === "completed" ? (
             <HoverCard>
               <HoverCardTrigger asChild>
-                <span 
-                  className="cursor-pointer hover:underline inline-block w-full truncate" 
-                  title={movie.fileName}
-                >
-                  {movie.fileName}
-                </span>
+                <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
               </HoverCardTrigger>
               <HoverCardContent className="w-96 bg-black/90 border-white/10" side="right">
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-white">Spoiler Preview</h4>
                   <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
-                    {hoveredMovieId === movie.id ? movie.spoiler || 'Loading...' : 'Loading...'}
+                    {localSpoilers[movie.id] || "Loading..."}
                   </pre>
                 </div>
               </HoverCardContent>
@@ -98,7 +93,9 @@ function SortableRow({
       </TableCell>
       <TableCell className="text-slate-300">{movie.fileSize}</TableCell>
       <TableCell className="text-slate-300">{movie.duration}</TableCell>
-      <TableCell className="text-slate-300">{movie.width}x{movie.height}</TableCell>
+      <TableCell className="text-slate-300">
+        {movie.width}x{movie.height}
+      </TableCell>
       <TableCell>
         {movie.screenshotUrls && movie.screenshotUrls.length > 0 ? (
           <Badge variant="outline" className="border-green-400/50 text-green-400">
@@ -110,19 +107,17 @@ function SortableRow({
           </Badge>
         )}
       </TableCell>
-      <TableCell>
-        {getProcessingBadge(movie.processingState, movie.processingError)}
-      </TableCell>
+      <TableCell>{getProcessingBadge(movie.processingState, movie.processingError)}</TableCell>
       <TableCell>
         <div className="flex gap-1">
-          {movie.processingState === 'completed' && (
+          {movie.processingState === "completed" && (
             <Button
               size="sm"
               variant="ghost"
               className="hover:bg-green-500/20 hover:text-green-400"
               onClick={(e) => {
-                e.stopPropagation()
-                onCopyMovieResult(movie.id)
+                e.stopPropagation();
+                onCopyMovieResult(movie.id);
               }}
             >
               <Copy className="w-4 h-4" />
@@ -133,8 +128,8 @@ function SortableRow({
             variant="ghost"
             className="hover:bg-red-500/20 hover:text-red-400"
             onClick={(e) => {
-              e.stopPropagation()
-              onRemoveMovie(movie.id)
+              e.stopPropagation();
+              onRemoveMovie(movie.id);
             }}
           >
             <Trash2 className="w-4 h-4" />
@@ -142,7 +137,7 @@ function SortableRow({
         </div>
       </TableCell>
     </TableRowWrapper>
-  )
+  );
 }
 
 export default function MovieTable({
@@ -155,64 +150,83 @@ export default function MovieTable({
   onRemoveMovie,
   onCopyMovieResult,
   onCopyAllResults,
-  onReorderMovies
+  onReorderMovies,
 }: MovieTableProps) {
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
-  const [hoveredMovieId, setHoveredMovieId] = useState<string | null>(null)
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [localSpoilers, setLocalSpoilers] = useState<Record<string, string>>({});
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(useSensor(PointerSensor));
 
   const handleDragEnd = (event: any) => {
-    const { active, over } = event
+    const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = movies.findIndex(m => m.id === active.id)
-      const newIndex = movies.findIndex(m => m.id === over.id)
-      const newMovies = arrayMove(movies, oldIndex, newIndex)
-      onReorderMovies(newMovies)
+      const oldIndex = movies.findIndex((m) => m.id === active.id);
+      const newIndex = movies.findIndex((m) => m.id === over.id);
+      const newMovies = arrayMove(movies, oldIndex, newIndex);
+      onReorderMovies(newMovies);
     }
-  }
+  };
 
   const handleRowHover = async (movieId: string) => {
-    if (hoveredMovieId === movieId) return
-    setHoveredMovieId(movieId)
     try {
-      const spoiler = await SpoilerService.GenerateResultForMovie(movieId)
-      const updatedMovies = movies.map(m => m.id === movieId ? { ...m, spoiler } : m)
-      onReorderMovies(updatedMovies)
+      const spoiler = await SpoilerService.GenerateResultForMovie(movieId);
+      setLocalSpoilers((prev) => ({ ...prev, [movieId]: spoiler }));
     } catch (error) {
-      console.error('Failed to generate spoiler preview:', error)
+      console.error("Failed to generate spoiler preview:", error);
     }
-  }
+  };
 
   const getProcessingBadge = (state: string, processingError?: string) => {
     switch (state) {
-      case 'pending':
-        return <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">Pending</Badge>
-      case 'analyzing_media':
-        return <Badge variant="outline" className="border-blue-400/50 text-blue-400">Analyzing Media</Badge>
-      case 'generating_screenshots':
-        return <Badge variant="outline" className="border-purple-400/50 text-purple-400">Generating Screenshots</Badge>
-      case 'uploading_screenshots':
-        return <Badge variant="outline" className="border-cyan-400/50 text-cyan-400">Uploading Screenshots</Badge>
-      case 'completed':
-        return <Badge variant="outline" className="border-green-400/50 text-green-400">Complete</Badge>
-      case 'error':
+      case "pending":
+        return (
+          <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">
+            Pending
+          </Badge>
+        );
+      case "analyzing_media":
+        return (
+          <Badge variant="outline" className="border-blue-400/50 text-blue-400">
+            Analyzing Media
+          </Badge>
+        );
+      case "generating_screenshots":
+        return (
+          <Badge variant="outline" className="border-purple-400/50 text-purple-400">
+            Generating Screenshots
+          </Badge>
+        );
+      case "uploading_screenshots":
+        return (
+          <Badge variant="outline" className="border-cyan-400/50 text-cyan-400">
+            Uploading Screenshots
+          </Badge>
+        );
+      case "completed":
+        return (
+          <Badge variant="outline" className="border-green-400/50 text-green-400">
+            Complete
+          </Badge>
+        );
+      case "error":
         return (
           <div className="flex items-center gap-1">
-            <Badge variant="outline" className="border-red-400/50 text-red-400">Error</Badge>
+            <Badge variant="outline" className="border-red-400/50 text-red-400">
+              Error
+            </Badge>
             {processingError && (
               <div className="text-xs text-red-400" title={processingError}>
                 <AlertCircle className="w-3 h-3" />
               </div>
             )}
           </div>
-        )
+        );
       default:
-        return null
+        return null;
     }
-  }
+  };
 
-  const completedMovies = movies.filter(m => m.processingState === 'completed')
+  const completedMovies = movies.filter((m) => m.processingState === "completed");
 
   return (
     <Card className="bg-black/10 border-white/5">
@@ -224,19 +238,12 @@ export default function MovieTable({
           </CardTitle>
           <div className="flex items-center gap-2">
             {pendingCount > 0 && !processing && (
-              <Button 
-                onClick={onStartProcessing}
-                className="bg-gradient-to-r from-green-600 to-emerald-600"
-              >
+              <Button onClick={onStartProcessing} className="bg-gradient-to-r from-green-600 to-emerald-600">
                 Start Processing ({pendingCount})
               </Button>
             )}
             {processing && (
-              <Button 
-                onClick={onCancelProcessing}
-                variant="outline" 
-                className="border-red-400/50 text-red-400 hover:bg-red-500/20"
-              >
+              <Button onClick={onCancelProcessing} variant="outline" className="border-red-400/50 text-red-400 hover:bg-red-500/20">
                 Cancel
               </Button>
             )}
@@ -244,10 +251,7 @@ export default function MovieTable({
               Clear All
             </Button>
             {completedMovies.length > 0 && (
-              <Button 
-                onClick={onCopyAllResults}
-                className="bg-gradient-to-r from-green-600 to-emerald-600"
-              >
+              <Button onClick={onCopyAllResults} className="bg-gradient-to-r from-green-600 to-emerald-600">
                 Copy All ({completedMovies.length})
               </Button>
             )}
@@ -257,7 +261,7 @@ export default function MovieTable({
       <CardContent>
         <ScrollArea className="h-[400px]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext  items={movies.map(m => m.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={movies.map((m) => m.id)} strategy={verticalListSortingStrategy}>
               <Table>
                 <TableHeader>
                   <TableRowWrapper className="border-white/5">
@@ -279,7 +283,7 @@ export default function MovieTable({
                       index={index}
                       selectedMovie={selectedMovie}
                       setSelectedMovie={setSelectedMovie}
-                      hoveredMovieId={hoveredMovieId}
+                      localSpoilers={localSpoilers}
                       handleRowHover={handleRowHover}
                       onRemoveMovie={onRemoveMovie}
                       onCopyMovieResult={onCopyMovieResult}
@@ -293,5 +297,5 @@ export default function MovieTable({
         </ScrollArea>
       </CardContent>
     </Card>
-  )
+  );
 }

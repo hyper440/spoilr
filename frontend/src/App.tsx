@@ -1,164 +1,162 @@
-import { ThemeProvider } from "@/components/theme-provider"
-import { useState, useEffect } from 'react'
-import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/changeme/backend"
-import { Events, WML } from "@wailsio/runtime"
+import { ThemeProvider } from "@/components/theme-provider";
+import { useState, useEffect } from "react";
+import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/changeme/backend";
+import { Events, WML } from "@wailsio/runtime";
 
-import DropZone from './components/DropZone'
-import MovieTable from './components/MovieTable'
-import TemplateEditor from './components/TemplateEditor'
-import Header from './components/Header'
+import DropZone from "./components/DropZone";
+import MovieTable from "./components/MovieTable";
+import TemplateEditor from "./components/TemplateEditor";
+import Header from "./components/Header";
 
 function App() {
   const [state, setState] = useState<AppState>({
     processing: false,
-    movies: []
-  })
+    movies: [],
+  });
   const [settings, setSettings] = useState<AppSettings>({
     hideEmpty: true,
     uiFontSize: 12,
     listFontSize: 10,
     textFontSize: 12,
     screenshotCount: 6,
-    fastpicSid: '',
-    screenshotQuality: 2
-  })
-  const [template, setTemplate] = useState('')
-  const [editingTemplate, setEditingTemplate] = useState(false)
+    fastpicSid: "",
+    screenshotQuality: 2,
+  });
+  const [template, setTemplate] = useState("");
+  const [editingTemplate, setEditingTemplate] = useState(false);
 
   useEffect(() => {
-    loadInitialData()
-    
+    loadInitialData();
+
     const handleStateUpdate = (ev: any) => {
-      console.log('State updated:', ev.data)
-      
+      console.log("State updated:", ev.data);
+
       // Wails sends data wrapped in array
-      const newState = Array.isArray(ev.data) ? ev.data[0] : ev.data
-      console.log('Setting state:', newState)
-      setState(newState as AppState)
-    }
-    
-    Events.On('state', handleStateUpdate)
-    
+      const newState = Array.isArray(ev.data) ? ev.data[0] : ev.data;
+      console.log("Setting state:", newState);
+      setState(newState as AppState);
+    };
+
+    Events.On("state", handleStateUpdate);
+
     // Load initial state immediately
-    SpoilerService.GetState().then(setState).catch(console.error)
-    
-    WML.Reload()
-    
+    SpoilerService.GetState().then(setState).catch(console.error);
+
+    WML.Reload();
+
     return () => {
-      Events.Off('state')
-    }
-  }, [])
+      Events.Off("state");
+    };
+  }, []);
 
   const loadInitialData = async () => {
     try {
       const [appSettings, tmpl, initialState] = await Promise.all([
         SpoilerService.GetSettings(),
         SpoilerService.GetTemplate(),
-        SpoilerService.GetState()
-      ])
-      
-      setSettings(appSettings)
-      setTemplate(tmpl)
-      setState(initialState)
+        SpoilerService.GetState(),
+      ]);
+
+      setSettings(appSettings);
+      setTemplate(tmpl);
+      setState(initialState);
     } catch (error) {
-      console.error('Failed to load initial data:', error)
+      console.error("Failed to load initial data:", error);
     }
-  }
-
-
+  };
 
   const startProcessing = async () => {
     try {
-      await SpoilerService.StartProcessing()
+      await SpoilerService.StartProcessing();
     } catch (error) {
-      console.error('Failed to start processing:', error)
+      console.error("Failed to start processing:", error);
     }
-  }
+  };
 
   const cancelProcessing = async () => {
     try {
-      await SpoilerService.CancelProcessing()
+      await SpoilerService.CancelProcessing();
     } catch (error) {
-      console.error('Failed to cancel processing:', error)
+      console.error("Failed to cancel processing:", error);
     }
-  }
+  };
 
   const clearMovies = async () => {
     try {
-      await SpoilerService.ClearMovies()
+      await SpoilerService.ClearMovies();
     } catch (error) {
-      console.error('Failed to clear movies:', error)
+      console.error("Failed to clear movies:", error);
     }
-  }
+  };
 
   const removeMovie = async (id: string) => {
     try {
-      await SpoilerService.RemoveMovie(id)
+      await SpoilerService.RemoveMovie(id);
     } catch (error) {
-      console.error('Failed to remove movie:', error)
+      console.error("Failed to remove movie:", error);
     }
-  }
+  };
 
   const saveTemplate = async () => {
     try {
-      await SpoilerService.SetTemplate(template)
-      setEditingTemplate(false)
+      await SpoilerService.SetTemplate(template);
+      setEditingTemplate(false);
     } catch (error) {
-      console.error('Failed to save template:', error)
+      console.error("Failed to save template:", error);
     }
-  }
+  };
 
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings }
-    setSettings(updated)
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
     try {
-      await SpoilerService.UpdateSettings(updated)
+      await SpoilerService.UpdateSettings(updated);
     } catch (error) {
-      console.error('Failed to update settings:', error)
+      console.error("Failed to update settings:", error);
     }
-  }
+  };
 
   const copyMovieResult = async (movieId: string) => {
     try {
-      const result = await SpoilerService.GenerateResultForMovie(movieId)
-      await navigator.clipboard.writeText(result)
+      const result = await SpoilerService.GenerateResultForMovie(movieId);
+      await navigator.clipboard.writeText(result);
     } catch (error) {
-      console.error('Failed to copy result:', error)
+      console.error("Failed to copy result:", error);
     }
-  }
+  };
 
   const copyAllResults = async () => {
     try {
-      const result = await SpoilerService.GenerateResult()
-      await navigator.clipboard.writeText(result)
+      const result = await SpoilerService.GenerateResult();
+      await navigator.clipboard.writeText(result);
     } catch (error) {
-      console.error('Failed to copy results:', error)
+      console.error("Failed to copy results:", error);
     }
-  }
+  };
 
   const onReorderMovies = async (newMovies: Movie[]) => {
     try {
-        // Extract just the IDs in the new order
-        const newOrder = newMovies.map(movie => movie.id);
-        await SpoilerService.ReorderMovies(newOrder);
-        // State will be updated via the event listener
+      // Extract just the IDs in the new order
+      const newOrder = newMovies.map((movie) => movie.id);
+      await SpoilerService.ReorderMovies(newOrder);
+      // State will be updated via the event listener
     } catch (error) {
-        console.error('Failed to reorder movies:', error);
+      console.error("Failed to reorder movies:", error);
     }
-};
+  };
 
-  const pendingMovies = state.movies?.filter(m => m.processingState === 'pending') || []
-  const hasMovies = (state.movies?.length || 0) > 0
+  const pendingMovies = state.movies?.filter((m) => m.processingState === "pending") || [];
+  const hasMovies = (state.movies?.length || 0) > 0;
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <div className="h-screen w-full flex flex-col overflow-hidden
+      <div
+        className="h-screen w-full flex flex-col overflow-hidden
         backdrop-blur-xl shadow-lg 
-        bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]">
-        
+        bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]"
+      >
         <div className="relative z-10 container mx-auto p-6 max-w-7xl">
           <div className="backdrop-blur-xl bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl">
-            
             <Header
               editingTemplate={editingTemplate}
               onEditTemplate={() => setEditingTemplate(true)}
@@ -168,35 +166,29 @@ function App() {
               onUpdateSettings={updateSettings}
             />
 
-            {editingTemplate && (
-              <TemplateEditor
-                template={template}
-                onTemplateChange={setTemplate}
-              />
-            )}
+            {editingTemplate && <TemplateEditor template={template} onTemplateChange={setTemplate} />}
 
             {!hasMovies ? (
               <DropZone />
             ) : (
-          <MovieTable
-            movies={state.movies}
-            processing={state.processing}
-            pendingCount={pendingMovies.length}
-            onStartProcessing={startProcessing}
-            onCancelProcessing={cancelProcessing}
-            onClearMovies={clearMovies}
-            onRemoveMovie={removeMovie}
-            onCopyMovieResult={copyMovieResult}
-            onCopyAllResults={copyAllResults}
-            onReorderMovies={onReorderMovies}
-          />
-
+              <MovieTable
+                movies={state.movies}
+                processing={state.processing}
+                pendingCount={pendingMovies.length}
+                onStartProcessing={startProcessing}
+                onCancelProcessing={cancelProcessing}
+                onClearMovies={clearMovies}
+                onRemoveMovie={removeMovie}
+                onCopyMovieResult={copyMovieResult}
+                onCopyAllResults={copyAllResults}
+                onReorderMovies={onReorderMovies}
+              />
             )}
           </div>
         </div>
       </div>
     </ThemeProvider>
-  )
+  );
 }
 
-export default App
+export default App;
