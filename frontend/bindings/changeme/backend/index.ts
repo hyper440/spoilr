@@ -8,6 +8,6 @@ export {
 
 export {
     AppSettings,
-    Movie,
-    ProcessProgress
+    AppState,
+    Movie
 } from "./models.js";

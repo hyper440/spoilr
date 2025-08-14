@@ -13,23 +13,16 @@ import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/applicati
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function AddMovie(movie: $models.Movie): $CancellablePromise<void> {
-    return $Call.ByID(2167188870, movie);
+export function AddMovies(filePaths: string[]): $CancellablePromise<void> {
+    return $Call.ByID(1314248879, filePaths);
 }
 
-/**
- * AddPendingFiles adds files to the list with pending status
- */
-export function AddPendingFiles(filePaths: string[]): $CancellablePromise<void> {
-    return $Call.ByID(3518933892, filePaths);
+export function CancelProcessing(): $CancellablePromise<void> {
+    return $Call.ByID(1786494294);
 }
 
 export function ClearMovies(): $CancellablePromise<void> {
     return $Call.ByID(3366575601);
-}
-
-export function EmitProgress(progress: $models.ProcessProgress): $CancellablePromise<void> {
-    return $Call.ByID(2779484171, progress);
 }
 
 /**
@@ -52,18 +45,18 @@ export function GetExpandedFilePaths(paths: string[]): $CancellablePromise<strin
     });
 }
 
-export function GetMovies(): $CancellablePromise<$models.Movie[]> {
-    return $Call.ByID(1376886268).then(($result: any) => {
-        return $$createType2($result);
-    });
-}
-
 /**
  * Settings management
  */
 export function GetSettings(): $CancellablePromise<$models.AppSettings> {
     return $Call.ByID(3737918080).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType1($result);
+    });
+}
+
+export function GetState(): $CancellablePromise<$models.AppState> {
+    return $Call.ByID(1461037886).then(($result: any) => {
+        return $$createType2($result);
     });
 }
 
@@ -72,14 +65,6 @@ export function GetSettings(): $CancellablePromise<$models.AppSettings> {
  */
 export function GetTemplate(): $CancellablePromise<string> {
     return $Call.ByID(841079811);
-}
-
-export function ProcessFiles(filePaths: string[]): $CancellablePromise<void> {
-    return $Call.ByID(768775415, filePaths);
-}
-
-export function ProcessFilesAsync(filePaths: string[]): $CancellablePromise<void> {
-    return $Call.ByID(4139121497, filePaths);
 }
 
 export function RemoveMovie(id: number): $CancellablePromise<void> {
@@ -94,12 +79,15 @@ export function SetTemplate(template: string): $CancellablePromise<void> {
     return $Call.ByID(2381016119, template);
 }
 
+export function StartProcessing(): $CancellablePromise<void> {
+    return $Call.ByID(4006642018);
+}
+
 export function UpdateSettings(settings: $models.AppSettings): $CancellablePromise<void> {
     return $Call.ByID(724887735, settings);
 }
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = $models.Movie.createFrom;
-const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $models.AppSettings.createFrom;
+const $$createType1 = $models.AppSettings.createFrom;
+const $$createType2 = $models.AppState.createFrom;

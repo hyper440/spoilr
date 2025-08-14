@@ -9,7 +9,6 @@ import { Create as $Create } from "@wailsio/runtime";
  * AppSettings represents application settings
  */
 export class AppSettings {
-    "centerAlign": boolean;
     "hideEmpty": boolean;
     "uiFontSize": number;
     "listFontSize": number;
@@ -20,9 +19,6 @@ export class AppSettings {
 
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
-        if (!("centerAlign" in $$source)) {
-            this["centerAlign"] = false;
-        }
         if (!("hideEmpty" in $$source)) {
             this["hideEmpty"] = false;
         }
@@ -58,6 +54,38 @@ export class AppSettings {
 }
 
 /**
+ * AppState represents the current application state
+ */
+export class AppState {
+    "processing": boolean;
+    "movies": Movie[];
+
+    /** Creates a new AppState instance. */
+    constructor($$source: Partial<AppState> = {}) {
+        if (!("processing" in $$source)) {
+            this["processing"] = false;
+        }
+        if (!("movies" in $$source)) {
+            this["movies"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AppState instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AppState {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("movies" in $$parsedSource) {
+            $$parsedSource["movies"] = $$createField1_0($$parsedSource["movies"]);
+        }
+        return new AppState($$parsedSource as Partial<AppState>);
+    }
+}
+
+/**
  * Movie represents a media file with its metadata
  */
 export class Movie {
@@ -79,9 +107,14 @@ export class Movie {
     "params": { [_: string]: string };
 
     /**
-     * "pending", "processing", "completed", "error"
+     * "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
      */
     "processingState": string;
+
+    /**
+     * Error details if processing fails
+     */
+    "processingError"?: string;
 
     /** Creates a new Movie instance. */
     constructor($$source: Partial<Movie> = {}) {
@@ -144,8 +177,8 @@ export class Movie {
      * Creates a new Movie instance from a string or object.
      */
     static createFrom($$source: any = {}): Movie {
-        const $$createField13_0 = $$createType0;
-        const $$createField15_0 = $$createType1;
+        const $$createField13_0 = $$createType2;
+        const $$createField15_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
@@ -157,47 +190,8 @@ export class Movie {
     }
 }
 
-/**
- * ProcessProgress represents file processing progress
- */
-export class ProcessProgress {
-    "current": number;
-    "total": number;
-    "fileName": string;
-    "message": string;
-    "completed": boolean;
-    "error"?: string;
-
-    /** Creates a new ProcessProgress instance. */
-    constructor($$source: Partial<ProcessProgress> = {}) {
-        if (!("current" in $$source)) {
-            this["current"] = 0;
-        }
-        if (!("total" in $$source)) {
-            this["total"] = 0;
-        }
-        if (!("fileName" in $$source)) {
-            this["fileName"] = "";
-        }
-        if (!("message" in $$source)) {
-            this["message"] = "";
-        }
-        if (!("completed" in $$source)) {
-            this["completed"] = false;
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new ProcessProgress instance from a string or object.
-     */
-    static createFrom($$source: any = {}): ProcessProgress {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new ProcessProgress($$parsedSource as Partial<ProcessProgress>);
-    }
-}
-
 // Private type creation functions
-const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = $Create.Map($Create.Any, $Create.Any);
+const $$createType0 = Movie.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);
+const $$createType3 = $Create.Map($Create.Any, $Create.Any);

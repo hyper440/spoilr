@@ -18,7 +18,24 @@ type Movie struct {
 	ScreenshotURLs  []string          `json:"screenshotUrls"`
 	ScreenshotAlbum string            `json:"screenshotAlbum"`
 	Params          map[string]string `json:"params"`
-	ProcessingState string            `json:"processingState"` // "pending", "processing", "completed", "error"
+	ProcessingState string            `json:"processingState"`           // "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
+	ProcessingError string            `json:"processingError,omitempty"` // Error details if processing fails
+}
+
+// Processing state constants
+const (
+	StatePending               = "pending"
+	StateAnalyzingMedia        = "analyzing_media"
+	StateGeneratingScreenshots = "generating_screenshots"
+	StateUploadingScreenshots  = "uploading_screenshots"
+	StateCompleted             = "completed"
+	StateError                 = "error"
+)
+
+// AppState represents the current application state
+type AppState struct {
+	Processing bool    `json:"processing"`
+	Movies     []Movie `json:"movies"`
 }
 
 // MediaInfo represents extracted media information
@@ -28,19 +45,8 @@ type MediaInfo struct {
 	Audio   map[string]string `json:"audio"`
 }
 
-// ProcessProgress represents file processing progress
-type ProcessProgress struct {
-	Current   int    `json:"current"`
-	Total     int    `json:"total"`
-	FileName  string `json:"fileName"`
-	Message   string `json:"message"`
-	Completed bool   `json:"completed"`
-	Error     string `json:"error,omitempty"`
-}
-
 // AppSettings represents application settings
 type AppSettings struct {
-	CenterAlign       bool   `json:"centerAlign"`
 	HideEmpty         bool   `json:"hideEmpty"`
 	UIFontSize        int    `json:"uiFontSize"`
 	ListFontSize      int    `json:"listFontSize"`

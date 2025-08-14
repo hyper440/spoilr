@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 )
 
 type FastpicService struct {
@@ -20,52 +24,94 @@ func NewFastpicService(sid string) *FastpicService {
 	return &FastpicService{sid: sid}
 }
 
-// getFastpicUploadID gets upload ID from fastpic
 func (f *FastpicService) getFastpicUploadID() (string, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	req, err := http.NewRequest("GET", "https://new.fastpic.org/", nil)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create request: %v", err)
 	}
 
+	// Add fp_sid if available
 	if f.sid != "" {
 		req.AddCookie(&http.Cookie{Name: "fp_sid", Value: f.sid})
+		log.Printf("Using existing fastpic SID for authentication")
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("fastpic returned status code %d", resp.StatusCode)
+	}
+
+	// If no SID was set, try to parse it from Set-Cookie
+	if f.sid == "" {
+		for _, cookie := range resp.Cookies() {
+			if cookie.Name == "fp_sid" && cookie.Value != "" {
+				f.sid = cookie.Value
+				log.Printf("Automatically obtained fp_sid: %s", f.sid)
+				break
+			}
+		}
+		if f.sid == "" {
+			log.Printf("Warning: could not find fp_sid in response cookies")
+		}
+	}
+
+	// Parse HTML with goquery
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse HTML: %v", err)
 	}
 
-	// Use regex to extract upload_id from JavaScript
+	// Find <script> containing "upload_id"
+	var scriptText string
+	doc.Find("script").EachWithBreak(func(i int, s *goquery.Selection) bool {
+		text := s.Text()
+		if text != "" && regexp.MustCompile(`"upload_id"`).MatchString(text) {
+			scriptText = text
+			return false // stop iterating
+		}
+		return true
+	})
+
+	if scriptText == "" {
+		return "", fmt.Errorf("could not find script containing upload_id")
+	}
+
+	// Extract upload_id using regex
 	re := regexp.MustCompile(`"upload_id"\s*:\s*'([^']+)'`)
-	matches := re.FindSubmatch(body)
+	matches := re.FindStringSubmatch(scriptText)
 	if len(matches) < 2 {
-		return "", fmt.Errorf("could not find upload_id in response")
+		return "", fmt.Errorf("upload_id not found in script")
 	}
 
-	return string(matches[1]), nil
+	uploadID := matches[1]
+	log.Printf("Successfully obtained fastpic upload ID: %s", uploadID)
+	return uploadID, nil
 }
 
 // uploadToFastpic uploads image to fastpic
 func (f *FastpicService) uploadToFastpic(filePath, fileName, uploadID string) (*FastpicUploadResult, error) {
+	log.Printf("Starting upload of %s to fastpic...", fileName)
+
+	if _, err := os.Stat(filePath); err != nil {
+		return nil, fmt.Errorf("failed to stat file: %v", err)
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
 	var buffer bytes.Buffer
 	writer := multipart.NewWriter(&buffer)
 
-	// Add form fields
 	fields := map[string]string{
 		"uploading":                 "1",
 		"fp":                        "not-loaded",
@@ -83,84 +129,98 @@ func (f *FastpicService) uploadToFastpic(filePath, fileName, uploadID string) (*
 	}
 
 	for key, value := range fields {
-		writer.WriteField(key, value)
+		if err := writer.WriteField(key, value); err != nil {
+			return nil, fmt.Errorf("failed to write form field %s: %v", key, err)
+		}
 	}
 
-	// Add file
 	part, err := writer.CreateFormFile("file1", fileName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create form file: %v", err)
 	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return nil, err
+
+	if _, err := io.Copy(part, file); err != nil {
+		return nil, fmt.Errorf("failed to copy file data: %v", err)
 	}
 
 	writer.Close()
 
-	// Create request
 	req, err := http.NewRequest("POST", "https://new.fastpic.org/v2upload/", &buffer)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
 	if f.sid != "" {
 		req.AddCookie(&http.Cookie{Name: "fp_sid", Value: f.sid})
 		req.AddCookie(&http.Cookie{Name: "pp", Value: "1"})
 	}
 
-	// Send request
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("upload request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Parse response according to the new format
-	var response struct {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %v", err)
+	}
+
+	log.Printf("Fastpic response: %s", string(body))
+
+	// Parse JSON normally for simple fields
+	var respJSON struct {
 		ThumbLink string `json:"thumb_link"`
 		ViewLink  string `json:"view_link"`
 		AlbumLink string `json:"album_link"`
-		Codes     string `json:"codes"`
+		Codes     string `json:"codes"` // treat HTML snippet as string
 	}
-
-	err = json.NewDecoder(resp.Body).Decode(&response)
-	if err != nil {
-		return nil, err
+	if err := json.Unmarshal(body, &respJSON); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %v", err)
 	}
 
 	result := &FastpicUploadResult{
-		AlbumLink: "https://new.fastpic.org" + response.AlbumLink,
-		Direct:    response.ViewLink,
+		AlbumLink: "https://new.fastpic.org" + respJSON.AlbumLink,
+		Direct:    respJSON.ViewLink,
+		BBThumb:   respJSON.ThumbLink, // default fallback
+		BBBig:     respJSON.ThumbLink,
 	}
 
-	// Extract BBCode thumbnail from the codes HTML
-	// Look for the BBCode input value
-	bbCodeRegex := regexp.MustCompile(`\[URL=[^\]]+\]\[IMG\]([^\[]+)\[/IMG\]\[/URL\]`)
-	matches := bbCodeRegex.FindStringSubmatch(response.Codes)
-	if len(matches) > 1 {
-		result.BBThumb = matches[1]
+	// Parse HTML snippet from codes
+	doc, err := html.Parse(bytes.NewReader([]byte(respJSON.Codes)))
+	if err == nil {
+		var ffunc func(*html.Node)
+		ffunc = func(n *html.Node) {
+			if n.Type == html.ElementNode && n.Data == "input" {
+				for _, attr := range n.Attr {
+					if attr.Key == "value" {
+						val := attr.Val
+						// BBCode detection
+						if len(val) > 5 && val[:5] == "[URL=" {
+							result.BBThumb = val
+						}
+						// HTML snippet detection
+						if len(val) > 3 && val[:3] == "<a " {
+							result.HTMLThumb = val
+						}
+						// Markdown detection
+						if len(val) > 5 && val[:5] == "[![" {
+							result.MDThumb = val
+						}
+					}
+				}
+			}
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				ffunc(c)
+			}
+		}
+		ffunc(doc)
 	}
 
-	// Extract HTML thumbnail
-	htmlRegex := regexp.MustCompile(`<img src="([^"]+)"`)
-	htmlMatches := htmlRegex.FindStringSubmatch(response.Codes)
-	if len(htmlMatches) > 1 {
-		result.HTMLThumb = fmt.Sprintf(`<a href="%s" target="_blank"><img src="%s" border="0"></a>`, response.ViewLink, htmlMatches[1])
-	}
-
-	// Extract Markdown thumbnail
-	mdRegex := regexp.MustCompile(`\[!\[FastPic\.Ru\]\(([^\)]+)\)\]\(([^\)]+)\)`)
-	mdMatches := mdRegex.FindStringSubmatch(response.Codes)
-	if len(mdMatches) > 2 {
-		result.MDThumb = fmt.Sprintf("[![FastPic.Ru](%s)](%s)", mdMatches[1], mdMatches[2])
-	}
-
-	// For BBBig, use the same thumbnail URL (fastpic doesn't seem to provide separate big image in new format)
-	result.BBBig = result.BBThumb
-
+	log.Printf("Upload completed. Direct: %s, BBThumb: %s", result.Direct, result.BBThumb)
 	return result, nil
 }

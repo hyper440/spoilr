@@ -2,7 +2,6 @@ package main
 
 import (
 	"changeme/backend"
-	"context"
 	"embed"
 	"log"
 
@@ -54,45 +53,11 @@ func main() {
 		paths := event.Context().DroppedFiles()
 		log.Printf("Files dropped: %v", paths)
 
-		// Process dropped files in a goroutine to avoid blocking UI
-		go func() {
-			ctx := context.Background()
-
-			// Expand paths to handle directories
-			expandedPaths, err := spoilerService.GetExpandedFilePaths(paths)
-			if err != nil {
-				log.Printf("Error expanding file paths: %v", err)
-				spoilerService.EmitProgress(backend.ProcessProgress{
-					Current:   0,
-					Total:     0,
-					Message:   "Error processing files",
-					Error:     err.Error(),
-					Completed: true,
-				})
-				return
-			}
-
-			if len(expandedPaths) == 0 {
-				spoilerService.EmitProgress(backend.ProcessProgress{
-					Current:   0,
-					Total:     0,
-					Message:   "No video files found",
-					Completed: true,
-				})
-				return
-			}
-
-			log.Printf("Processing %d video files", len(expandedPaths))
-
-			// Add files to the list first (this makes them show up immediately)
-			spoilerService.AddPendingFiles(expandedPaths)
-
-			// Then process the files
-			err = spoilerService.ProcessFiles(ctx, expandedPaths)
-			if err != nil {
-				log.Printf("Error processing files: %v", err)
-			}
-		}()
+		// Just add files to the list without processing
+		err := spoilerService.AddMovies(paths)
+		if err != nil {
+			log.Printf("Error adding movies: %v", err)
+		}
 	})
 
 	err := app.Run()
