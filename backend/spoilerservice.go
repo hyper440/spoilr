@@ -357,7 +357,7 @@ func (s *SpoilerService) processMovieIndividually(movie Movie, tempDir string) {
 
 	// Generate thumbnail
 	var thumbnailPath string
-	if strings.Contains(s.template, "%THUMBNAIL%") {
+	if strings.Contains(s.template, "%THUMBNAIL%") || strings.Contains(s.template, "%THUMBNAIL_BIG%") {
 		thumbnailPath, err = s.generateMovieThumbnail(movie.FilePath, movieTempDir)
 		if err != nil {
 			log.Printf("Failed to generate thumbnail for %s: %v", movie.FileName, err)
@@ -390,7 +390,7 @@ func (s *SpoilerService) processMovieIndividually(movie Movie, tempDir string) {
 	s.emitState()
 
 	// Upload media
-	thumbnailURL, screenshotURLs, albumURL, err := s.uploadMovieMedia(movie, thumbnailPath, screenshotPaths)
+	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMovieMedia(movie, thumbnailPath, screenshotPaths)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -403,7 +403,9 @@ func (s *SpoilerService) processMovieIndividually(movie Movie, tempDir string) {
 	// Update movie with results
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.ThumbnailURL = thumbnailURL
+		m.ThumbnailBigURL = thumbnailBigURL
 		m.ScreenshotURLs = screenshotURLs
+		m.ScreenshotBigURLs = screenshotBigURLs
 		m.ScreenshotAlbum = albumURL
 		m.ProcessingState = StateCompleted
 	})
@@ -495,17 +497,17 @@ func (s *SpoilerService) generateMovieScreenshots(videoPath, tempDir string, dur
 	return screenshotPaths, nil
 }
 
-func (s *SpoilerService) uploadMovieMedia(movie Movie, thumbnailPath string, screenshotPaths []string) (string, []string, string, error) {
+func (s *SpoilerService) uploadMovieMedia(movie Movie, thumbnailPath string, screenshotPaths []string) (string, string, []string, []string, string, error) {
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
 
 	// Get upload ID
 	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
-		return "", nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
+		return "", "", nil, nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
 
-	var thumbnailURL, albumURL string
-	var screenshotURLs []string
+	var thumbnailURL, thumbnailBigURL, albumURL string
+	var screenshotURLs, screenshotBigURLs []string
 
 	baseFileName := strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath))
 
@@ -517,6 +519,7 @@ func (s *SpoilerService) uploadMovieMedia(movie Movie, thumbnailPath string, scr
 			log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
 		} else {
 			thumbnailURL = result.BBThumb
+			thumbnailBigURL = result.BBBig
 			if albumURL == "" {
 				albumURL = result.AlbumLink
 			}
@@ -533,12 +536,13 @@ func (s *SpoilerService) uploadMovieMedia(movie Movie, thumbnailPath string, scr
 		}
 
 		screenshotURLs = append(screenshotURLs, result.BBThumb)
+		screenshotBigURLs = append(screenshotBigURLs, result.BBBig)
 		if albumURL == "" {
 			albumURL = result.AlbumLink
 		}
 	}
 
-	return thumbnailURL, screenshotURLs, albumURL, nil
+	return thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, nil
 }
 
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
@@ -767,14 +771,21 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
 
-	// Handle thumbnail
+	// Handle thumbnail (BBThumb)
 	if movie.ThumbnailURL != "" {
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ThumbnailURL)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "")
 	}
 
-	// Handle screenshots with newline separator
+	// Handle thumbnail big (BBBig)
+	if movie.ThumbnailBigURL != "" {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ThumbnailBigURL)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "")
+	}
+
+	// Handle screenshots (BBThumb) with newline separator
 	if len(movie.ScreenshotURLs) > 0 {
 		screenshotsStr := strings.Join(movie.ScreenshotURLs, "\n")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", screenshotsStr)
@@ -785,6 +796,19 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", "")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", "")
+	}
+
+	// Handle screenshots big (BBBig) with newline separator
+	if len(movie.ScreenshotBigURLs) > 0 {
+		screenshotsBigStr := strings.Join(movie.ScreenshotBigURLs, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", screenshotsBigStr)
+
+		// Handle screenshots big with space separator
+		screenshotsBigSpaced := strings.Join(movie.ScreenshotBigURLs, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", screenshotsBigSpaced)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", "")
 	}
 
 	// Replace parameter placeholders

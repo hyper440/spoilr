@@ -2,25 +2,27 @@ package backend
 
 // Movie represents a media file with its metadata
 type Movie struct {
-	ID              string            `json:"id"`
-	FileName        string            `json:"fileName"`
-	FilePath        string            `json:"filePath"`
-	FileSize        string            `json:"fileSize"`
-	FileSizeBytes   int64             `json:"fileSizeBytes"`
-	Duration        string            `json:"duration"`
-	Width           string            `json:"width"`
-	Height          string            `json:"height"`
-	BitRate         string            `json:"bitRate"`
-	VideoBitRate    string            `json:"videoBitRate"`
-	AudioBitRate    string            `json:"audioBitRate"`
-	VideoCodec      string            `json:"videoCodec"`
-	AudioCodec      string            `json:"audioCodec"`
-	ScreenshotURLs  []string          `json:"screenshotUrls"`
-	ScreenshotAlbum string            `json:"screenshotAlbum"`
-	ThumbnailURL    string            `json:"thumbnailUrl"` // URL of the mtn-generated thumbnail
-	Params          map[string]string `json:"params"`
-	ProcessingState string            `json:"processingState"`           // "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
-	ProcessingError string            `json:"processingError,omitempty"` // Error details if processing fails
+	ID                string            `json:"id"`
+	FileName          string            `json:"fileName"`
+	FilePath          string            `json:"filePath"`
+	FileSize          string            `json:"fileSize"`
+	FileSizeBytes     int64             `json:"fileSizeBytes"`
+	Duration          string            `json:"duration"`
+	Width             string            `json:"width"`
+	Height            string            `json:"height"`
+	BitRate           string            `json:"bitRate"`
+	VideoBitRate      string            `json:"videoBitRate"`
+	AudioBitRate      string            `json:"audioBitRate"`
+	VideoCodec        string            `json:"videoCodec"`
+	AudioCodec        string            `json:"audioCodec"`
+	ScreenshotURLs    []string          `json:"screenshotUrls"`    // BBThumb URLs
+	ScreenshotBigURLs []string          `json:"screenshotBigUrls"` // BBBig URLs
+	ScreenshotAlbum   string            `json:"screenshotAlbum"`
+	ThumbnailURL      string            `json:"thumbnailUrl"`    // BBThumb URL
+	ThumbnailBigURL   string            `json:"thumbnailBigUrl"` // BBBig URL
+	Params            map[string]string `json:"params"`
+	ProcessingState   string            `json:"processingState"`           // "pending", "analyzing_media", "generating_screenshots", "uploading_screenshots", "completed", "error"
+	ProcessingError   string            `json:"processingError,omitempty"` // Error details if processing fails
 }
 
 // Processing state constants

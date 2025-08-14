@@ -56,7 +56,7 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`wails-no-drag border-white/5 hover:bg-white/2 relative`}
+      className={`border-white/5 hover:bg-white/2 relative`}
       onClick={() => setSelectedMovie(movie)}
       onMouseEnter={() => movie.processingState === "completed" && handleRowHover(movie.id)}
     >
@@ -270,7 +270,7 @@ export default function MovieTable({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="wails-no-drag">
         <ScrollArea className="h-[400px]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={movies.map((m) => m.id)} strategy={verticalListSortingStrategy}>

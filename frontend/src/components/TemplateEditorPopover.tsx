@@ -37,9 +37,12 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%AUDIO_BIT_RATE%", description: "Audio stream bitrate" },
     { name: "%VIDEO_CODEC%", description: "Video codec name (e.g., h264, hevc)" },
     { name: "%AUDIO_CODEC%", description: "Audio codec name (e.g., aac, mp3)" },
-    { name: "%SCREENSHOTS%", description: "Screenshots separated by newlines" },
-    { name: "%SCREENSHOTS_SPACED%", description: "Screenshots separated by spaces" },
-    { name: "%THUMBNAIL%", description: "Movie thumbnail grid generated with mtn" },
+    { name: "%SCREENSHOTS%", description: "Screenshots (small preview) separated by newlines" },
+    { name: "%SCREENSHOTS_SPACED%", description: "Screenshots (small preview) separated by spaces" },
+    { name: "%SCREENSHOTS_BIG%", description: "Screenshots (fullsize) separated by newlines" },
+    { name: "%SCREENSHOTS_BIG_SPACED%", description: "Screenshots (fullsize) separated by spaces" },
+    { name: "%THUMBNAIL%", description: "Movie thumbnail grid (small preview) generated with mtn" },
+    { name: "%THUMBNAIL_BIG%", description: "Movie thumbnail grid (fullsize) generated with mtn" },
   ];
 
   const handleOpenChange = (open: boolean) => {

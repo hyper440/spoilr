@@ -118,13 +118,27 @@ export class Movie {
     "audioBitRate": string;
     "videoCodec": string;
     "audioCodec": string;
+
+    /**
+     * BBThumb URLs
+     */
     "screenshotUrls": string[];
+
+    /**
+     * BBBig URLs
+     */
+    "screenshotBigUrls": string[];
     "screenshotAlbum": string;
 
     /**
-     * URL of the mtn-generated thumbnail
+     * BBThumb URL
      */
     "thumbnailUrl": string;
+
+    /**
+     * BBBig URL
+     */
+    "thumbnailBigUrl": string;
     "params": { [_: string]: string };
 
     /**
@@ -181,11 +195,17 @@ export class Movie {
         if (!("screenshotUrls" in $$source)) {
             this["screenshotUrls"] = [];
         }
+        if (!("screenshotBigUrls" in $$source)) {
+            this["screenshotBigUrls"] = [];
+        }
         if (!("screenshotAlbum" in $$source)) {
             this["screenshotAlbum"] = "";
         }
         if (!("thumbnailUrl" in $$source)) {
             this["thumbnailUrl"] = "";
+        }
+        if (!("thumbnailBigUrl" in $$source)) {
+            this["thumbnailBigUrl"] = "";
         }
         if (!("params" in $$source)) {
             this["params"] = {};
@@ -202,13 +222,17 @@ export class Movie {
      */
     static createFrom($$source: any = {}): Movie {
         const $$createField13_0 = $$createType2;
-        const $$createField16_0 = $$createType3;
+        const $$createField14_0 = $$createType2;
+        const $$createField18_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
         }
+        if ("screenshotBigUrls" in $$parsedSource) {
+            $$parsedSource["screenshotBigUrls"] = $$createField14_0($$parsedSource["screenshotBigUrls"]);
+        }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField16_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField18_0($$parsedSource["params"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }
