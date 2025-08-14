@@ -4,3 +4,4 @@ frontend/dist
 frontend/node_modules
 build/linux/appimage/build
 wails_windows_amd64.syso
+spoilerlist.config
