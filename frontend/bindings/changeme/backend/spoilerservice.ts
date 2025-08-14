@@ -39,6 +39,10 @@ export function GenerateResultForMovie(movieID: string): $CancellablePromise<str
     return $Call.ByID(2420383732, movieID);
 }
 
+export function GetDefaultTemplate(): $CancellablePromise<string> {
+    return $Call.ByID(202669800);
+}
+
 export function GetExpandedFilePaths(paths: string[]): $CancellablePromise<string[]> {
     return $Call.ByID(2612523930, paths).then(($result: any) => {
         return $$createType0($result);

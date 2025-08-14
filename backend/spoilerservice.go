@@ -30,7 +30,7 @@ type SpoilerService struct {
 }
 
 func NewSpoilerService() *SpoilerService {
-	return &SpoilerService{
+	service := &SpoilerService{
 		movies: make([]Movie, 0),
 		settings: AppSettings{
 			HideEmpty:         true,
@@ -41,9 +41,10 @@ func NewSpoilerService() *SpoilerService {
 			FastpicSID:        "",
 			ScreenshotQuality: 2,
 		},
-		template:   getDefaultTemplate(),
 		processing: false,
 	}
+	service.template = service.GetDefaultTemplate()
+	return service
 }
 
 func (s *SpoilerService) SetApp(app *application.App) {
@@ -62,6 +63,41 @@ func (s *SpoilerService) emitState() {
 		state := s.GetState()
 		s.app.Event.Emit("state", state)
 	}
+}
+
+func (s *SpoilerService) GetDefaultTemplate() string {
+	return `[spoiler="%FILE_NAME%"]
+File: %FILE_NAME%
+Size: %FILE_SIZE%
+Duration: %DURATION%
+Resolution: %WIDTH%x%HEIGHT%
+Video: %VIDEO_CODEC% @ %VIDEO_BIT_RATE%
+Audio: %AUDIO_CODEC% @ %AUDIO_BIT_RATE%
+Overall Bitrate: %BIT_RATE%
+
+%SCREENSHOTS%
+[/spoiler]`
+}
+
+// Helper function to find and update movie by ID
+func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool {
+	for i := range s.movies {
+		if s.movies[i].ID == id {
+			updateFn(&s.movies[i])
+			return true
+		}
+	}
+	return false
+}
+
+// Helper function to get movie by ID (returns copy)
+func (s *SpoilerService) getMovieByID(id string) (Movie, bool) {
+	for _, movie := range s.movies {
+		if movie.ID == id {
+			return movie, true
+		}
+	}
+	return Movie{}, false
 }
 
 func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
@@ -146,7 +182,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 			FileSizeBytes:   fileInfo.Size(),
 			Params:          make(map[string]string),
 			ScreenshotURLs:  make([]string, 0),
-			ProcessingState: StateAnalyzingMedia, // Start with analyzing state
+			ProcessingState: StateAnalyzingMedia,
 		}
 
 		// Immediately analyze media info
@@ -177,6 +213,7 @@ func (s *SpoilerService) RemoveMovie(id string) {
 	}
 	s.emitState()
 }
+
 func (s *SpoilerService) ClearMovies() {
 	s.movies = make([]Movie, 0)
 	s.emitState()
@@ -210,20 +247,33 @@ func (s *SpoilerService) StartProcessing() error {
 			}
 
 			s.emitState()
+			log.Println("Processing completed, set processing to false")
 		}()
 
-		for _, movie := range pendingMovies {
+		// Process movies by continuously checking for pending ones
+		// This handles reordering/removal during processing
+		for {
 			select {
 			case <-s.cancelCtx.Done():
 				log.Println("Processing cancelled")
 				return
 			default:
-				err := s.processMovie(movie.ID)
-				if err != nil {
-					log.Printf("Error processing movie %s: %v", movie.FileName, err)
-					// Continue with next movie even if one fails
-					continue
-				}
+			}
+
+			// Get current pending movies (refreshed each iteration)
+			currentPending := s.getPendingMovies()
+			if len(currentPending) == 0 {
+				log.Println("No more pending movies, processing complete")
+				return
+			}
+
+			// Process the first pending movie
+			movie := currentPending[0]
+			err := s.processMovie(movie.ID)
+			if err != nil {
+				log.Printf("Error processing movie %s: %v", movie.FileName, err)
+				// Continue with next movie even if one fails
+				continue
 			}
 		}
 	}()
@@ -256,6 +306,7 @@ func (s *SpoilerService) ReorderMovies(newOrder []string) error {
 	s.emitState()
 	return nil
 }
+
 func (s *SpoilerService) CancelProcessing() {
 	if s.cancelFn != nil {
 		s.cancelFn()
@@ -275,18 +326,19 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 }
 
 func (s *SpoilerService) processMovie(movieID string) error {
-	movieIndex := s.findMovieIndex(movieID)
-	if movieIndex == -1 {
+	// Get movie by ID to check if it still exists and get current state
+	movie, exists := s.getMovieByID(movieID)
+	if !exists {
 		return fmt.Errorf("movie not found")
 	}
-
-	movie := &s.movies[movieIndex]
 
 	// Check for cancellation before starting
 	select {
 	case <-s.cancelCtx.Done():
-		movie.ProcessingState = StatePending
-		movie.ProcessingError = ""
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ProcessingState = StatePending
+			m.ProcessingError = ""
+		})
 		s.emitState()
 		return fmt.Errorf("processing cancelled before starting")
 	default:
@@ -302,50 +354,63 @@ func (s *SpoilerService) processMovie(movieID string) error {
 		// Check for cancellation before screenshots
 		select {
 		case <-s.cancelCtx.Done():
-			movie.ProcessingState = StatePending
-			movie.ProcessingError = ""
+			s.updateMovieByID(movieID, func(m *Movie) {
+				m.ProcessingState = StatePending
+				m.ProcessingError = ""
+			})
 			s.emitState()
 			return fmt.Errorf("processing cancelled before screenshots")
 		default:
 		}
 
 		// Update state to generating screenshots
-		movie.ProcessingState = StateGeneratingScreenshots
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ProcessingState = StateGeneratingScreenshots
+		})
 		s.emitState()
 
-		screenshotURLs, albumURL, err := s.generateAndUploadScreenshots(movie.FilePath)
+		screenshotURLs, albumURL, err := s.generateAndUploadScreenshots(movieID, movie.FilePath)
 		if err != nil {
 			// Check if it was cancelled
 			if s.cancelCtx.Err() != nil {
-				movie.ProcessingState = StatePending
-				movie.ProcessingError = ""
+				s.updateMovieByID(movieID, func(m *Movie) {
+					m.ProcessingState = StatePending
+					m.ProcessingError = ""
+				})
 				s.emitState()
 				return fmt.Errorf("screenshot processing cancelled")
 			}
 			log.Printf("Screenshot generation/upload failed for %s: %v", movie.FilePath, err)
 			// Don't fail the entire processing, just log the error
 		} else {
-			movie.ScreenshotURLs = screenshotURLs
-			movie.ScreenshotAlbum = albumURL
+			s.updateMovieByID(movieID, func(m *Movie) {
+				m.ScreenshotURLs = screenshotURLs
+				m.ScreenshotAlbum = albumURL
+			})
 		}
 	}
 
 	// Final check for cancellation
 	select {
 	case <-s.cancelCtx.Done():
-		movie.ProcessingState = StatePending
-		movie.ProcessingError = ""
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ProcessingState = StatePending
+			m.ProcessingError = ""
+		})
 		s.emitState()
 		return fmt.Errorf("processing cancelled before completion")
 	default:
 	}
 
-	movie.ProcessingState = StateCompleted
-	movie.ProcessingError = ""
+	s.updateMovieByID(movieID, func(m *Movie) {
+		m.ProcessingState = StateCompleted
+		m.ProcessingError = ""
+	})
 	s.emitState()
 
 	return nil
 }
+
 func (s *SpoilerService) findMovieIndex(id string) int {
 	for i, movie := range s.movies {
 		if movie.ID == id {
@@ -355,7 +420,7 @@ func (s *SpoilerService) findMovieIndex(id string) int {
 	return -1
 }
 
-func (s *SpoilerService) generateAndUploadScreenshots(filePath string) ([]string, string, error) {
+func (s *SpoilerService) generateAndUploadScreenshots(movieID, filePath string) ([]string, string, error) {
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
 
 	// Create temporary directory for screenshots
@@ -402,12 +467,11 @@ func (s *SpoilerService) generateAndUploadScreenshots(filePath string) ([]string
 
 	log.Printf("Generated %d screenshots, starting upload...", len(screenshotPaths))
 
-	// Update state to uploading
-	movieIndex := s.findMovieIndexByPath(filePath)
-	if movieIndex != -1 {
-		s.movies[movieIndex].ProcessingState = StateUploadingScreenshots
-		s.emitState()
-	}
+	// Update state to uploading using movie ID instead of path
+	s.updateMovieByID(movieID, func(m *Movie) {
+		m.ProcessingState = StateUploadingScreenshots
+	})
+	s.emitState()
 
 	// Check for cancellation before getting upload ID
 	select {
@@ -705,12 +769,17 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
 
-	// Handle screenshots
+	// Handle screenshots with newline separator
 	if len(movie.ScreenshotURLs) > 0 {
 		screenshotsStr := strings.Join(movie.ScreenshotURLs, "\n")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", screenshotsStr)
+
+		// Handle screenshots with space separator
+		screenshotsSpaced := strings.Join(movie.ScreenshotURLs, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", screenshotsSpaced)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", "")
 	}
 
 	// Replace parameter placeholders
@@ -783,18 +852,4 @@ func formatFileSize(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-func getDefaultTemplate() string {
-	return `[spoiler="%FILE_NAME%"]
-File: %FILE_NAME%
-Size: %FILE_SIZE%
-Duration: %DURATION%
-Resolution: %WIDTH%x%HEIGHT%
-Video: %VIDEO_CODEC% @ %VIDEO_BIT_RATE%
-Audio: %AUDIO_CODEC% @ %AUDIO_BIT_RATE%
-Overall Bitrate: %BIT_RATE%
-
-%SCREENSHOTS%
-[/spoiler]`
 }

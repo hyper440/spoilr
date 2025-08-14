@@ -104,6 +104,16 @@ function App() {
     }
   };
 
+  const resetTemplateToDefault = async () => {
+    try {
+      const defaultTemplate = await SpoilerService.GetDefaultTemplate();
+      await SpoilerService.SetTemplate(defaultTemplate);
+      setTemplate(defaultTemplate);
+    } catch (error) {
+      console.error("Failed to reset template to default:", error);
+    }
+  };
+
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -155,7 +165,13 @@ function App() {
       >
         <div className="relative z-10 container mx-auto p-6 max-w-7xl">
           <div className="backdrop-blur-xl bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl">
-            <Header template={template} onTemplateChange={saveTemplate} settings={settings} onUpdateSettings={updateSettings} />
+            <Header
+              template={template}
+              onTemplateChange={saveTemplate}
+              onResetTemplate={resetTemplateToDefault}
+              settings={settings}
+              onUpdateSettings={updateSettings}
+            />
 
             {!hasMovies ? (
               <DropZone />

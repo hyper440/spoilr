@@ -1,37 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Edit } from "lucide-react";
+import { Edit, RotateCcw } from "lucide-react";
 
 interface TemplateEditorProps {
   template: string;
   onTemplateChange: (template: string) => void;
+  onResetToDefault: () => void; // Add this prop to handle reset
 }
 
-export default function TemplateEditor({ template, onTemplateChange }: TemplateEditorProps) {
+interface TemplateParam {
+  name: string;
+  description: string;
+}
+
+export default function TemplateEditor({ template, onTemplateChange, onResetToDefault }: TemplateEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState(template);
 
-  const templateParams = [
-    "%FILE_NAME%",
-    "%FILE_SIZE%",
-    "%DURATION%",
-    "%WIDTH%",
-    "%HEIGHT%",
-    "%BIT_RATE%",
-    "%VIDEO_BIT_RATE%",
-    "%AUDIO_BIT_RATE%",
-    "%VIDEO_CODEC%",
-    "%AUDIO_CODEC%",
-    "%SCREENSHOTS%",
+  useEffect(() => {
+    setCurrentTemplate(template);
+  }, [template]);
+
+  const templateParams: TemplateParam[] = [
+    { name: "%FILE_NAME%", description: "Original filename of the video file" },
+    { name: "%FILE_SIZE%", description: "File size in human-readable format (e.g., 1.2 GB)" },
+    { name: "%DURATION%", description: "Video duration in HH:MM:SS or MM:SS format" },
+    { name: "%WIDTH%", description: "Video width in pixels" },
+    { name: "%HEIGHT%", description: "Video height in pixels" },
+    { name: "%BIT_RATE%", description: "Overall bitrate of the file" },
+    { name: "%VIDEO_BIT_RATE%", description: "Video stream bitrate" },
+    { name: "%AUDIO_BIT_RATE%", description: "Audio stream bitrate" },
+    { name: "%VIDEO_CODEC%", description: "Video codec name (e.g., h264, hevc)" },
+    { name: "%AUDIO_CODEC%", description: "Audio codec name (e.g., aac, mp3)" },
+    { name: "%SCREENSHOTS%", description: "Screenshots separated by newlines" },
+    { name: "%SCREENSHOTS_SPACED%", description: "Screenshots separated by spaces" },
   ];
 
   const handleOpenChange = (open: boolean) => {
-    if (!open && currentTemplate !== template) {
-      // Auto-save when closing if there are changes
-      onTemplateChange(currentTemplate);
-    }
     setIsOpen(open);
     if (open) {
       // Reset to current template when opening
@@ -43,6 +51,15 @@ export default function TemplateEditor({ template, onTemplateChange }: TemplateE
     setCurrentTemplate(currentTemplate + param);
   };
 
+  const handleResetToDefault = () => {
+    onResetToDefault();
+  };
+
+  const handleSaveTemplate = () => {
+    onTemplateChange(currentTemplate);
+    setIsOpen(false);
+  };
+
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-2">
@@ -51,7 +68,18 @@ export default function TemplateEditor({ template, onTemplateChange }: TemplateE
       </PopoverTrigger>
       <PopoverContent className="w-[600px]" side="bottom" align="end">
         <div className="space-y-4">
-          <h4 className="font-medium text-base">Template Editor</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-base">Template Editor</h4>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleResetToDefault} className="text-xs">
+                <RotateCcw className="w-3 h-3 mr-1" />
+                Reset to Default
+              </Button>
+              <Button onClick={handleSaveTemplate} size="sm">
+                Save Template
+              </Button>
+            </div>
+          </div>
 
           <Textarea
             value={currentTemplate}
@@ -59,12 +87,22 @@ export default function TemplateEditor({ template, onTemplateChange }: TemplateE
             className="min-h-[200px] font-mono text-sm"
             placeholder="Enter your template here..."
           />
-          <div className="flex flex-wrap gap-2">
-            {templateParams.map((param) => (
-              <Badge key={param} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => handleParamClick(param)}>
-                {param}
-              </Badge>
-            ))}
+
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">Available parameters:</p>
+            <div className="flex flex-wrap gap-2">
+              {templateParams.map((param) => (
+                <Badge
+                  key={param.name}
+                  variant="secondary"
+                  className="cursor-pointer hover:bg-secondary/80"
+                  onClick={() => handleParamClick(param.name)}
+                  title={param.description}
+                >
+                  {param.name}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
       </PopoverContent>
