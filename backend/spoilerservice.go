@@ -30,11 +30,11 @@ type SpoilerService struct {
 	cancelFn            context.CancelFunc
 	screenshotSemaphore chan struct{} // Limits concurrent screenshot generation
 	uploadSemaphore     chan struct{} // Limits concurrent uploads
-	configManager       *SpoilerConfigManager
+	configManager       *ConfigService
 }
 
 func NewSpoilerService() *SpoilerService {
-	configManager := NewSpoilerConfigManager()
+	configManager := NewConfigService()
 	config := configManager.GetConfig()
 
 	service := &SpoilerService{

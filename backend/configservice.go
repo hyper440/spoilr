@@ -35,13 +35,13 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	Template:                 "",
 }
 
-type SpoilerConfigManager struct{}
+type ConfigService struct{}
 
-func NewSpoilerConfigManager() *SpoilerConfigManager {
-	return &SpoilerConfigManager{}
+func NewConfigService() *ConfigService {
+	return &ConfigService{}
 }
 
-func (g *SpoilerConfigManager) GetConfig() SpoilerConfig {
+func (g *ConfigService) GetConfig() SpoilerConfig {
 	initSpoilerConfigPath()
 	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
 		fmt.Println("Created a new spoiler settings config")
@@ -61,7 +61,7 @@ func (g *SpoilerConfigManager) GetConfig() SpoilerConfig {
 	return SpoilerAppConfig
 }
 
-func (g *SpoilerConfigManager) UpdateConfig(config SpoilerConfig) error {
+func (g *ConfigService) UpdateConfig(config SpoilerConfig) error {
 	// Validate some values
 	if config.ScreenshotCount < 0 || config.ScreenshotCount > 20 {
 		return fmt.Errorf("screenshot count must be between 0 and 20")
