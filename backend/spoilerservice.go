@@ -30,25 +30,32 @@ type SpoilerService struct {
 	cancelFn            context.CancelFunc
 	screenshotSemaphore chan struct{} // Limits concurrent screenshot generation
 	uploadSemaphore     chan struct{} // Limits concurrent uploads
+	configManager       *SpoilerConfigManager
 }
 
 func NewSpoilerService() *SpoilerService {
+	configManager := NewSpoilerConfigManager()
+	config := configManager.GetConfig()
+
 	service := &SpoilerService{
 		movies: make([]Movie, 0),
 		settings: AppSettings{
-			HideEmpty:                true,
-			UIFontSize:               12,
-			ListFontSize:             10,
-			TextFontSize:             12,
-			ScreenshotCount:          6,
-			FastpicSID:               "",
-			ScreenshotQuality:        2,
-			MaxConcurrentScreenshots: 3,
-			MaxConcurrentUploads:     2,
+			HideEmpty:                config.HideEmpty,
+			ScreenshotCount:          config.ScreenshotCount,
+			FastpicSID:               config.FastpicSID,
+			ScreenshotQuality:        config.ScreenshotQuality,
+			MaxConcurrentScreenshots: config.MaxConcurrentScreenshots,
+			MaxConcurrentUploads:     config.MaxConcurrentUploads,
 		},
-		processing: false,
+		template:      config.Template,
+		processing:    false,
+		configManager: configManager,
 	}
-	service.template = service.GetDefaultTemplate()
+
+	if service.template == "" {
+		service.template = service.GetDefaultTemplate()
+	}
+
 	service.initSemaphores()
 	return service
 }
@@ -1025,6 +1032,22 @@ func (s *SpoilerService) GetSettings() AppSettings {
 
 func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 	s.settings = settings
+
+	// Save to config
+	config := SpoilerConfig{
+		HideEmpty:                settings.HideEmpty,
+		ScreenshotCount:          settings.ScreenshotCount,
+		FastpicSID:               settings.FastpicSID,
+		ScreenshotQuality:        settings.ScreenshotQuality,
+		MaxConcurrentScreenshots: settings.MaxConcurrentScreenshots,
+		MaxConcurrentUploads:     settings.MaxConcurrentUploads,
+		Template:                 s.template,
+	}
+
+	if err := s.configManager.UpdateConfig(config); err != nil {
+		log.Printf("Failed to save settings: %v", err)
+	}
+
 	s.initSemaphores() // Reinitialize semaphores with new limits
 }
 
@@ -1035,6 +1058,13 @@ func (s *SpoilerService) GetTemplate() string {
 
 func (s *SpoilerService) SetTemplate(template string) {
 	s.template = template
+
+	// Update config with new template
+	config := s.configManager.GetConfig()
+	config.Template = template
+	if err := s.configManager.UpdateConfig(config); err != nil {
+		log.Printf("Failed to save template: %v", err)
+	}
 }
 
 // Helper functions

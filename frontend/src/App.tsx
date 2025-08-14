@@ -15,9 +15,6 @@ function App() {
   });
   const [settings, setSettings] = useState<AppSettings>({
     hideEmpty: true,
-    uiFontSize: 12,
-    listFontSize: 10,
-    textFontSize: 12,
     screenshotCount: 6,
     fastpicSid: "",
     screenshotQuality: 2,

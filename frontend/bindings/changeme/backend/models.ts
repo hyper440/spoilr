@@ -10,9 +10,6 @@ import { Create as $Create } from "@wailsio/runtime";
  */
 export class AppSettings {
     "hideEmpty": boolean;
-    "uiFontSize": number;
-    "listFontSize": number;
-    "textFontSize": number;
     "screenshotCount": number;
     "fastpicSid": string;
     "screenshotQuality": number;
@@ -31,15 +28,6 @@ export class AppSettings {
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("hideEmpty" in $$source)) {
             this["hideEmpty"] = false;
-        }
-        if (!("uiFontSize" in $$source)) {
-            this["uiFontSize"] = 0;
-        }
-        if (!("listFontSize" in $$source)) {
-            this["listFontSize"] = 0;
-        }
-        if (!("textFontSize" in $$source)) {
-            this["textFontSize"] = 0;
         }
         if (!("screenshotCount" in $$source)) {
             this["screenshotCount"] = 0;
