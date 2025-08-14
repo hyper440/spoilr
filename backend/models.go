@@ -52,7 +52,6 @@ type MediaInfo struct {
 
 // AppSettings represents application settings
 type AppSettings struct {
-	HideEmpty                bool   `json:"hideEmpty"`
 	ScreenshotCount          int    `json:"screenshotCount"`
 	FastpicSID               string `json:"fastpicSid"`
 	ScreenshotQuality        int    `json:"screenshotQuality"`

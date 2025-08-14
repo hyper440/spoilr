@@ -40,7 +40,6 @@ func NewSpoilerService() *SpoilerService {
 	service := &SpoilerService{
 		movies: make([]Movie, 0),
 		settings: AppSettings{
-			HideEmpty:                config.HideEmpty,
 			ScreenshotCount:          config.ScreenshotCount,
 			FastpicSID:               config.FastpicSID,
 			ScreenshotQuality:        config.ScreenshotQuality,
@@ -1049,7 +1048,6 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 
 	// Save to config
 	config := SpoilerConfig{
-		HideEmpty:                settings.HideEmpty,
 		ScreenshotCount:          settings.ScreenshotCount,
 		FastpicSID:               settings.FastpicSID,
 		ScreenshotQuality:        settings.ScreenshotQuality,

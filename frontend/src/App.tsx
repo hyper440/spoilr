@@ -14,7 +14,6 @@ function App() {
     movies: [],
   });
   const [settings, setSettings] = useState<AppSettings>({
-    hideEmpty: true,
     screenshotCount: 6,
     fastpicSid: "",
     screenshotQuality: 2,

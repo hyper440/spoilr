@@ -1,6 +1,5 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,7 +44,7 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               <Slider
                 value={[settings.screenshotCount]}
                 onValueChange={([value]) => onUpdateSettings({ screenshotCount: value })}
-                max={12}
+                max={20}
                 min={1}
                 step={1}
               />
@@ -65,7 +64,7 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               <Slider
                 value={[settings.maxConcurrentScreenshots]}
                 onValueChange={([value]) => onUpdateSettings({ maxConcurrentScreenshots: value })}
-                max={8}
+                max={30}
                 min={1}
                 step={1}
               />
@@ -75,26 +74,10 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               <Slider
                 value={[settings.maxConcurrentUploads]}
                 onValueChange={([value]) => onUpdateSettings({ maxConcurrentUploads: value })}
-                max={6}
+                max={20}
                 min={1}
                 step={1}
               />
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Display Options */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="hideEmpty"
-                checked={settings.hideEmpty}
-                onCheckedChange={(checked) => onUpdateSettings({ hideEmpty: checked as boolean })}
-              />
-              <Label htmlFor="hideEmpty" className="text-sm font-medium">
-                Hide empty parameters
-              </Label>
             </div>
           </div>
         </div>

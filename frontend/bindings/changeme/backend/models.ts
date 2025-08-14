@@ -9,7 +9,6 @@ import { Create as $Create } from "@wailsio/runtime";
  * AppSettings represents application settings
  */
 export class AppSettings {
-    "hideEmpty": boolean;
     "screenshotCount": number;
     "fastpicSid": string;
     "screenshotQuality": number;
@@ -26,9 +25,6 @@ export class AppSettings {
 
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
-        if (!("hideEmpty" in $$source)) {
-            this["hideEmpty"] = false;
-        }
         if (!("screenshotCount" in $$source)) {
             this["screenshotCount"] = 0;
         }

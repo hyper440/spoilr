@@ -19,7 +19,6 @@ export default function DropZone() {
             <Upload className="w-12 h-12 text-purple-400" />
           </div>
           <h3 className="text-2xl font-semibold mb-3 text-white">Drop Video Files Anywhere</h3>
-          <p className="text-slate-400 mb-6">Supports MP4, AVI, MKV, MOV, and other video formats</p>
         </div>
       </CardContent>
     </Card>
