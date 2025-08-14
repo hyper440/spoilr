@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import { Trash2, Upload, Copy, Settings, Camera, Edit } from "lucide-react"
+import { Trash2, Upload, Copy, Settings, FileVideo2Icon, Edit } from "lucide-react"
 
 interface ProcessProgress {
   current: number
@@ -379,36 +379,13 @@ function App() {
               </Card>
             )}
 
-            {/* Progress */}
-            {progress && (
-              <Card className="bg-black/10 border-white/5 mb-6">
-                <CardContent className="p-6">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-white font-medium">{progress.message}</span>
-                      <span className="text-slate-400">
-                        {progress.current}/{progress.total}
-                      </span>
-                    </div>
-                    <Progress 
-                      value={(progress.current / progress.total) * 100} 
-                      className="bg-black/40"
-                    />
-                    {progress.error && (
-                      <p className="text-red-400 text-sm">{progress.error}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Files Table - only show if files exist */}
             {hasFiles && (
               <Card className="bg-black/10 border-white/5">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-white flex items-center gap-2">
-                      <Camera className="w-5 h-5" />
+                      <FileVideo2Icon className="w-5 h-5" />
                       Files ({movies.length})
                     </CardTitle>
                     <Button onClick={clearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
