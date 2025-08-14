@@ -67,24 +67,34 @@ function SortableRow({
         </div>
         {index + 1}
       </TableCell>
+
       <TableCell className="font-medium text-white">
-        {movie.processingState === 'completed' ? (
-          <HoverCard>
-            <HoverCardTrigger asChild>
-              <span className="cursor-pointer hover:underline">{movie.fileName}</span>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-96 bg-black/90 border-white/10" side="right">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-white">Spoiler Preview</h4>
-                <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
-                  {hoveredMovieId === movie.id ? movie.spoiler || 'Loading...' : 'Loading...'}
-                </pre>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-        ) : (
-          movie.fileName
-        )}
+        <div className="max-w-[500px] truncate">
+          {movie.processingState === 'completed' ? (
+            <HoverCard>
+              <HoverCardTrigger asChild>
+                <span 
+                  className="cursor-pointer hover:underline inline-block w-full truncate" 
+                  title={movie.fileName}
+                >
+                  {movie.fileName}
+                </span>
+              </HoverCardTrigger>
+              <HoverCardContent className="w-96 bg-black/90 border-white/10" side="right">
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-white">Spoiler Preview</h4>
+                  <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
+                    {hoveredMovieId === movie.id ? movie.spoiler || 'Loading...' : 'Loading...'}
+                  </pre>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          ) : (
+            <span className="inline-block w-full truncate" title={movie.fileName}>
+              {movie.fileName}
+            </span>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-slate-300">{movie.fileSize}</TableCell>
       <TableCell className="text-slate-300">{movie.duration}</TableCell>
