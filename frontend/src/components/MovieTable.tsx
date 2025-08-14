@@ -253,7 +253,7 @@ export default function MovieTable({
   const completedMovies = movies.filter((m) => m.processingState === "completed");
 
   return (
-    <Card className="bg-black/10 border-white/5">
+    <Card className="bg-black/10 border-white/5 wails-no-drag">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2">
@@ -282,8 +282,8 @@ export default function MovieTable({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="wails-no-drag">
-        <ScrollArea className="h-[400px]">
+      <CardContent>
+        <ScrollArea className="h-[530px]">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={movies.map((m) => m.id)} strategy={verticalListSortingStrategy}>
               <Table>

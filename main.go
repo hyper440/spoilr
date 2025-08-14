@@ -95,13 +95,14 @@ func main() {
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:             "Spoiler List Generator",
 		EnableDragAndDrop: true,
+		DisableResize:     true,
 		BackgroundColour:  application.NewRGBA(0, 0, 0, 0),
 		BackgroundType:    application.BackgroundTypeTranslucent,
 		URL:               "/",
-		Width:             1400,
-		Height:            900,
-		MinWidth:          1200,
-		MinHeight:         800,
+		Width:             1200,
+		Height:            800,
+		// MinWidth:          1200,
+		// MinHeight:         800,
 	})
 
 	// Handle drag and drop events

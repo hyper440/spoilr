@@ -168,37 +168,34 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <div
-        className="wails-drag h-screen w-full flex flex-col overflow-hidden
-        backdrop-blur-xl shadow-lg 
+        className="wails-drag h-screen w-screen flex-col overflow-hidden
         bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]"
       >
-        <div className="relative z-10 container mx-auto p-6 max-w-7xl">
-          <div className="backdrop-blur-xl bg-white/2 border border-white/5 rounded-3xl p-6 shadow-2xl">
-            <Header
-              template={template}
-              onTemplateChange={saveTemplate}
-              onResetTemplate={resetTemplateToDefault}
-              settings={settings}
-              onUpdateSettings={updateSettings}
-            />
+        <div className="h-full self-center p-2backdrop-blur-xl bg-white/2 p-6 shadow-2xl">
+          <Header
+            template={template}
+            onTemplateChange={saveTemplate}
+            onResetTemplate={resetTemplateToDefault}
+            settings={settings}
+            onUpdateSettings={updateSettings}
+          />
 
-            {!hasMovies ? (
-              <DropZone />
-            ) : (
-              <MovieTable
-                movies={state.movies}
-                processing={state.processing}
-                pendingCount={pendingMovies.length}
-                onStartProcessing={startProcessing}
-                onCancelProcessing={cancelProcessing}
-                onClearMovies={clearMovies}
-                onRemoveMovie={removeMovie}
-                onCopyMovieResult={copyMovieResult}
-                onCopyAllResults={copyAllResults}
-                onReorderMovies={onReorderMovies}
-              />
-            )}
-          </div>
+          {!hasMovies ? (
+            <DropZone />
+          ) : (
+            <MovieTable
+              movies={state.movies}
+              processing={state.processing}
+              pendingCount={pendingMovies.length}
+              onStartProcessing={startProcessing}
+              onCancelProcessing={cancelProcessing}
+              onClearMovies={clearMovies}
+              onRemoveMovie={removeMovie}
+              onCopyMovieResult={copyMovieResult}
+              onCopyAllResults={copyAllResults}
+              onReorderMovies={onReorderMovies}
+            />
+          )}
         </div>
       </div>
     </ThemeProvider>
