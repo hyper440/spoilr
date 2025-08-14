@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -166,7 +167,6 @@ func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		// Check if error is due to context cancellation
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("upload cancelled: %v", ctx.Err())
 		}
@@ -181,12 +181,11 @@ func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName
 
 	log.Printf("Fastpic response: %s", string(body))
 
-	// Parse JSON normally for simple fields
 	var respJSON struct {
 		ThumbLink string `json:"thumb_link"`
 		ViewLink  string `json:"view_link"`
 		AlbumLink string `json:"album_link"`
-		Codes     string `json:"codes"` // treat HTML snippet as string
+		Codes     string `json:"codes"`
 	}
 	if err := json.Unmarshal(body, &respJSON); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %v", err)
@@ -194,42 +193,63 @@ func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName
 
 	result := &FastpicUploadResult{
 		AlbumLink: "https://new.fastpic.org" + respJSON.AlbumLink,
-		Direct:    respJSON.ViewLink,
-		BBThumb:   respJSON.ThumbLink, // default fallback
-		BBBig:     respJSON.ThumbLink,
+		Direct:    extractDirectLink(respJSON.Codes),
 	}
 
-	// Parse HTML snippet from codes
-	doc, err := html.Parse(bytes.NewReader([]byte(respJSON.Codes)))
-	if err == nil {
-		var ffunc func(*html.Node)
-		ffunc = func(n *html.Node) {
-			if n.Type == html.ElementNode && n.Data == "input" {
-				for _, attr := range n.Attr {
-					if attr.Key == "value" {
-						val := attr.Val
-						// BBCode detection
-						if len(val) > 5 && val[:5] == "[URL=" {
-							result.BBThumb = val
-						}
-						// HTML snippet detection
-						if len(val) > 3 && val[:3] == "<a " {
-							result.HTMLThumb = val
-						}
-						// Markdown detection
-						if len(val) > 5 && val[:5] == "[![" {
-							result.MDThumb = val
-						}
-					}
+	// Extract BBCode values
+	result.BBThumb, result.BBBig = extractBBCodes(respJSON.Codes)
+
+	log.Printf("Upload completed. Direct: %s, BBThumb: %s, BBBig: %s",
+		result.Direct, result.BBThumb, result.BBBig)
+	return result, nil
+}
+
+// extractDirectLink extracts the direct image URL from the codes HTML
+func extractDirectLink(codesHTML string) string {
+	// Use regex to find the direct link input value
+	re := regexp.MustCompile(`<input[^>]*value="(https://[^"]*\.jpg)"[^>]*>`)
+	matches := re.FindStringSubmatch(codesHTML)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// extractBBCodes extracts both BBCode formats from the codes HTML
+func extractBBCodes(codesHTML string) (bbThumb, bbBig string) {
+	doc, err := html.Parse(strings.NewReader(codesHTML))
+	if err != nil {
+		log.Printf("Failed to parse HTML codes: %v", err)
+		return "", ""
+	}
+
+	var parseNode func(*html.Node)
+	parseNode = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "input" {
+			var value string
+			for _, attr := range n.Attr {
+				if attr.Key == "value" {
+					value = attr.Val
+					break
 				}
 			}
-			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				ffunc(c)
+
+			// Check if it's a BBCode format
+			if strings.HasPrefix(value, "[URL=") && strings.Contains(value, "[IMG]") {
+				// Distinguish between thumbnail and big image BBCode
+				if strings.Contains(value, "/thumb/") && strings.Contains(value, ".jpeg") {
+					bbThumb = value
+				} else if strings.Contains(value, "/big/") && strings.Contains(value, ".jpg") {
+					bbBig = value
+				}
 			}
 		}
-		ffunc(doc)
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			parseNode(c)
+		}
 	}
 
-	log.Printf("Upload completed. Direct: %s, BBThumb: %s", result.Direct, result.BBThumb)
-	return result, nil
+	parseNode(doc)
+	return bbThumb, bbBig
 }

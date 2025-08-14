@@ -65,8 +65,6 @@ type FastpicUploadResult struct {
 	Direct    string `json:"direct"`
 	BBThumb   string `json:"bbThumb"`
 	BBBig     string `json:"bbBig"`
-	HTMLThumb string `json:"htmlThumb"`
-	MDThumb   string `json:"mdThumb"`
 }
 
 // TemplateData represents data for template processing
