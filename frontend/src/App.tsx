@@ -20,6 +20,8 @@ function App() {
     screenshotCount: 6,
     fastpicSid: "",
     screenshotQuality: 2,
+    maxConcurrentScreenshots: 3,
+    maxConcurrentUploads: 2,
   });
   const [template, setTemplate] = useState("");
 

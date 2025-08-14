@@ -60,6 +60,26 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 step={1}
               />
             </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Parallel Generation: {settings.maxConcurrentScreenshots}</Label>
+              <Slider
+                value={[settings.maxConcurrentScreenshots]}
+                onValueChange={([value]) => onUpdateSettings({ maxConcurrentScreenshots: value })}
+                max={8}
+                min={1}
+                step={1}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Parallel Uploads: {settings.maxConcurrentUploads}</Label>
+              <Slider
+                value={[settings.maxConcurrentUploads]}
+                onValueChange={([value]) => onUpdateSettings({ maxConcurrentUploads: value })}
+                max={6}
+                min={1}
+                step={1}
+              />
+            </div>
           </div>
 
           <Separator />

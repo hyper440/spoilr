@@ -17,6 +17,16 @@ export class AppSettings {
     "fastpicSid": string;
     "screenshotQuality": number;
 
+    /**
+     * Max parallel screenshot generation
+     */
+    "maxConcurrentScreenshots": number;
+
+    /**
+     * Max parallel uploads
+     */
+    "maxConcurrentUploads": number;
+
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("hideEmpty" in $$source)) {
@@ -39,6 +49,12 @@ export class AppSettings {
         }
         if (!("screenshotQuality" in $$source)) {
             this["screenshotQuality"] = 0;
+        }
+        if (!("maxConcurrentScreenshots" in $$source)) {
+            this["maxConcurrentScreenshots"] = 0;
+        }
+        if (!("maxConcurrentUploads" in $$source)) {
+            this["maxConcurrentUploads"] = 0;
         }
 
         Object.assign(this, $$source);

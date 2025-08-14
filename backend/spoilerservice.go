@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,13 +34,15 @@ func NewSpoilerService() *SpoilerService {
 	service := &SpoilerService{
 		movies: make([]Movie, 0),
 		settings: AppSettings{
-			HideEmpty:         true,
-			UIFontSize:        12,
-			ListFontSize:      10,
-			TextFontSize:      12,
-			ScreenshotCount:   6,
-			FastpicSID:        "",
-			ScreenshotQuality: 2,
+			HideEmpty:                true,
+			UIFontSize:               12,
+			ListFontSize:             10,
+			TextFontSize:             12,
+			ScreenshotCount:          6,
+			FastpicSID:               "",
+			ScreenshotQuality:        2,
+			MaxConcurrentScreenshots: 3,
+			MaxConcurrentUploads:     2,
 		},
 		processing: false,
 	}
@@ -79,7 +82,6 @@ Overall Bitrate: %BIT_RATE%
 [/spoiler]`
 }
 
-// Helper function to find and update movie by ID
 func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool {
 	for i := range s.movies {
 		if s.movies[i].ID == id {
@@ -90,7 +92,6 @@ func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool 
 	return false
 }
 
-// Helper function to get movie by ID (returns copy)
 func (s *SpoilerService) getMovieByID(id string) (Movie, bool) {
 	for _, movie := range s.movies {
 		if movie.ID == id {
@@ -168,7 +169,6 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	}
 
 	for _, path := range expandedPaths {
-		// Get basic file info
 		fileInfo, err := os.Stat(path)
 		if err != nil {
 			continue
@@ -185,16 +185,14 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 			ProcessingState: StateAnalyzingMedia,
 		}
 
-		// Immediately analyze media info
 		mediaInfo, err := s.getMediaInfoWithFFProbe(path)
 		if err != nil {
 			log.Printf("Failed to analyze media %s: %v", filepath.Base(path), err)
 			movie.ProcessingState = StateError
 			movie.ProcessingError = err.Error()
 		} else {
-			// Extract and set media info
 			s.extractMediaInfo(&movie, mediaInfo)
-			movie.ProcessingState = StatePending // Ready for screenshot processing
+			movie.ProcessingState = StatePending
 		}
 
 		s.movies = append(s.movies, movie)
@@ -234,10 +232,8 @@ func (s *SpoilerService) StartProcessing() error {
 	s.emitState()
 
 	go func() {
-		// Use a defer to ensure processing is always set to false when done
 		defer func() {
 			s.processing = false
-
 			// Reset any movies that are still in processing states back to pending
 			for i := range s.movies {
 				if s.movies[i].ProcessingState != StateCompleted && s.movies[i].ProcessingState != StateError {
@@ -245,58 +241,31 @@ func (s *SpoilerService) StartProcessing() error {
 					s.movies[i].ProcessingError = ""
 				}
 			}
-
 			s.emitState()
-			log.Println("Processing completed, set processing to false")
+			log.Println("Processing completed")
 		}()
 
-		// Process movies by continuously checking for pending ones
-		// This handles reordering/removal during processing
-		for {
-			select {
-			case <-s.cancelCtx.Done():
-				log.Println("Processing cancelled")
-				return
-			default:
-			}
-
-			// Get current pending movies (refreshed each iteration)
-			currentPending := s.getPendingMovies()
-			if len(currentPending) == 0 {
-				log.Println("No more pending movies, processing complete")
-				return
-			}
-
-			// Process the first pending movie
-			movie := currentPending[0]
-			err := s.processMovie(movie.ID)
-			if err != nil {
-				log.Printf("Error processing movie %s: %v", movie.FileName, err)
-				// Continue with next movie even if one fails
-				continue
-			}
+		err := s.processAllMoviesConcurrently()
+		if err != nil {
+			log.Printf("Processing error: %v", err)
 		}
 	}()
 
 	return nil
 }
 
-// ReorderMovies updates the order of movies in the backend to match the provided order
 func (s *SpoilerService) ReorderMovies(newOrder []string) error {
-	// Create a map of ID to movie for quick lookup
 	movieMap := make(map[string]Movie)
 	for _, movie := range s.movies {
 		movieMap[movie.ID] = movie
 	}
 
-	// Verify all IDs in new order exist
 	for _, id := range newOrder {
 		if _, exists := movieMap[id]; !exists {
 			return fmt.Errorf("movie with ID %s not found", id)
 		}
 	}
 
-	// Rebuild the movies slice in the new order
 	var reorderedMovies []Movie
 	for _, id := range newOrder {
 		reorderedMovies = append(reorderedMovies, movieMap[id])
@@ -325,217 +294,412 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 	return pending
 }
 
-func (s *SpoilerService) processMovie(movieID string) error {
-	// Get movie by ID to check if it still exists and get current state
-	movie, exists := s.getMovieByID(movieID)
-	if !exists {
-		return fmt.Errorf("movie not found")
+// New concurrent processing approach
+func (s *SpoilerService) processAllMoviesConcurrently() error {
+	pendingMovies := s.getPendingMovies()
+	if len(pendingMovies) == 0 {
+		return nil
 	}
 
-	// Check for cancellation before starting
-	select {
-	case <-s.cancelCtx.Done():
-		s.updateMovieByID(movieID, func(m *Movie) {
-			m.ProcessingState = StatePending
-			m.ProcessingError = ""
-		})
-		s.emitState()
-		return fmt.Errorf("processing cancelled before starting")
-	default:
-	}
-
-	// Skip if media analysis failed
-	if movie.ProcessingState == StateError {
-		return fmt.Errorf("movie has analysis error: %s", movie.ProcessingError)
-	}
-
-	// Generate screenshots if configured
-	if s.settings.ScreenshotCount > 0 {
-		// Check for cancellation before screenshots
-		select {
-		case <-s.cancelCtx.Done():
-			s.updateMovieByID(movieID, func(m *Movie) {
-				m.ProcessingState = StatePending
-				m.ProcessingError = ""
+	if s.settings.ScreenshotCount <= 0 {
+		// No screenshots needed, mark all as completed
+		for _, movie := range pendingMovies {
+			s.updateMovieByID(movie.ID, func(m *Movie) {
+				m.ProcessingState = StateCompleted
 			})
-			s.emitState()
-			return fmt.Errorf("processing cancelled before screenshots")
-		default:
 		}
+		s.emitState()
+		return nil
+	}
 
-		// Update state to generating screenshots
-		s.updateMovieByID(movieID, func(m *Movie) {
+	// Create temp directory for all screenshots - cleanup after everything is done
+	tempDir, err := os.MkdirTemp("", "screenshots_*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Phase 1: Generate all screenshots for all movies concurrently
+	log.Printf("Starting concurrent screenshot generation for %d movies", len(pendingMovies))
+
+	// Update all movies to generating screenshots state
+	for _, movie := range pendingMovies {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateGeneratingScreenshots
 		})
-		s.emitState()
+	}
+	s.emitState()
 
-		screenshotURLs, albumURL, err := s.generateAndUploadScreenshots(movieID, movie.FilePath)
-		if err != nil {
-			// Check if it was cancelled
-			if s.cancelCtx.Err() != nil {
-				s.updateMovieByID(movieID, func(m *Movie) {
-					m.ProcessingState = StatePending
-					m.ProcessingError = ""
-				})
-				s.emitState()
-				return fmt.Errorf("screenshot processing cancelled")
-			}
-			log.Printf("Screenshot generation/upload failed for %s: %v", movie.FilePath, err)
-			// Don't fail the entire processing, just log the error
-		} else {
-			s.updateMovieByID(movieID, func(m *Movie) {
-				m.ScreenshotURLs = screenshotURLs
-				m.ScreenshotAlbum = albumURL
-			})
-		}
+	screenshotResults, err := s.generateAllScreenshotsConcurrently(pendingMovies, tempDir)
+	if err != nil {
+		return err
 	}
 
-	// Final check for cancellation
-	select {
-	case <-s.cancelCtx.Done():
+	// Phase 2: Upload all screenshots concurrently
+	log.Printf("Starting concurrent screenshot uploads")
+
+	// Update movies with generated screenshots to uploading state
+	for movieID := range screenshotResults {
 		s.updateMovieByID(movieID, func(m *Movie) {
-			m.ProcessingState = StatePending
-			m.ProcessingError = ""
+			m.ProcessingState = StateUploadingScreenshots
 		})
-		s.emitState()
-		return fmt.Errorf("processing cancelled before completion")
-	default:
+	}
+	s.emitState()
+
+	err = s.uploadAllScreenshotsConcurrently(screenshotResults)
+	if err != nil {
+		return err
 	}
 
-	s.updateMovieByID(movieID, func(m *Movie) {
-		m.ProcessingState = StateCompleted
-		m.ProcessingError = ""
-	})
+	// Mark all successfully processed movies as completed
+	for _, movie := range pendingMovies {
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			if m.ProcessingState != StateError {
+				m.ProcessingState = StateCompleted
+			}
+		})
+	}
 	s.emitState()
 
 	return nil
 }
 
-func (s *SpoilerService) findMovieIndex(id string) int {
-	for i, movie := range s.movies {
-		if movie.ID == id {
-			return i
-		}
-	}
-	return -1
+type movieScreenshotJob struct {
+	movieID    string
+	moviePath  string
+	index      int
+	timestamp  float64
+	outputPath string
 }
 
-func (s *SpoilerService) generateAndUploadScreenshots(movieID, filePath string) ([]string, string, error) {
+type movieScreenshotResult struct {
+	movieID string
+	index   int
+	path    string
+	err     error
+}
+
+type movieScreenshotCollection struct {
+	paths    []string
+	duration float64
+}
+
+func (s *SpoilerService) generateAllScreenshotsConcurrently(movies []Movie, tempDir string) (map[string]movieScreenshotCollection, error) {
+
+	// Collect all screenshot jobs from all movies
+	var allJobs []movieScreenshotJob
+	movieDurations := make(map[string]float64)
+
+	for _, movie := range movies {
+		// Get video duration
+		duration, err := s.getVideoDuration(movie.FilePath)
+		if err != nil {
+			log.Printf("Failed to get duration for %s: %v", movie.FileName, err)
+			s.updateMovieByID(movie.ID, func(m *Movie) {
+				m.ProcessingState = StateError
+				m.ProcessingError = fmt.Sprintf("Failed to get duration: %v", err)
+			})
+			continue
+		}
+
+		movieDurations[movie.ID] = duration
+		interval := duration / float64(s.settings.ScreenshotCount+1)
+
+		// Create movie-specific temp directory
+		movieTempDir := filepath.Join(tempDir, movie.ID)
+		if err := os.MkdirAll(movieTempDir, 0755); err != nil {
+			log.Printf("Failed to create temp dir for %s: %v", movie.FileName, err)
+			continue
+		}
+
+		// Add jobs for this movie
+		for i := 0; i < s.settings.ScreenshotCount; i++ {
+			timestamp := interval * float64(i+1)
+			outputPath := filepath.Join(movieTempDir, fmt.Sprintf("screenshot_%d.jpg", i+1))
+
+			allJobs = append(allJobs, movieScreenshotJob{
+				movieID:    movie.ID,
+				moviePath:  movie.FilePath,
+				index:      i,
+				timestamp:  timestamp,
+				outputPath: outputPath,
+			})
+		}
+	}
+
+	if len(allJobs) == 0 {
+		return nil, fmt.Errorf("no screenshot jobs to process")
+	}
+
+	log.Printf("Generating %d total screenshots across %d movies with %d parallel workers",
+		len(allJobs), len(movies), s.settings.MaxConcurrentScreenshots)
+
+	// Process all jobs concurrently
+	jobs := make(chan movieScreenshotJob, len(allJobs))
+	results := make(chan movieScreenshotResult, len(allJobs))
+
+	// Start workers
+	var wg sync.WaitGroup
+	maxWorkers := s.settings.MaxConcurrentScreenshots
+	if maxWorkers <= 0 {
+		maxWorkers = 1
+	}
+
+	for i := 0; i < maxWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				select {
+				case <-s.cancelCtx.Done():
+					results <- movieScreenshotResult{movieID: job.movieID, index: job.index, err: fmt.Errorf("cancelled")}
+					return
+				default:
+				}
+
+				err := s.generateScreenshot(job.moviePath, job.outputPath, job.timestamp)
+				results <- movieScreenshotResult{
+					movieID: job.movieID,
+					index:   job.index,
+					path:    job.outputPath,
+					err:     err,
+				}
+			}
+		}()
+	}
+
+	// Send all jobs
+	go func() {
+		defer close(jobs)
+		for _, job := range allJobs {
+			jobs <- job
+		}
+	}()
+
+	// Collect results
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Organize results by movie
+	movieResults := make(map[string]movieScreenshotCollection)
+	for _, movie := range movies {
+		movieResults[movie.ID] = movieScreenshotCollection{
+			paths:    make([]string, s.settings.ScreenshotCount),
+			duration: movieDurations[movie.ID],
+		}
+	}
+
+	successCount := 0
+	for result := range results {
+		if result.err != nil {
+			if s.cancelCtx.Err() != nil {
+				return nil, fmt.Errorf("screenshot generation cancelled")
+			}
+			log.Printf("Failed to generate screenshot %d for movie %s: %v", result.index+1, result.movieID, result.err)
+			continue
+		}
+
+		if collection, exists := movieResults[result.movieID]; exists {
+			collection.paths[result.index] = result.path
+			movieResults[result.movieID] = collection
+			successCount++
+		}
+	}
+
+	log.Printf("Generated %d/%d screenshots successfully", successCount, len(allJobs))
+
+	// Remove movies that have no successful screenshots
+	for movieID, collection := range movieResults {
+		hasAnyScreenshots := false
+		for _, path := range collection.paths {
+			if path != "" {
+				hasAnyScreenshots = true
+				break
+			}
+		}
+		if !hasAnyScreenshots {
+			delete(movieResults, movieID)
+			s.updateMovieByID(movieID, func(m *Movie) {
+				m.ProcessingState = StateError
+				m.ProcessingError = "No screenshots generated"
+			})
+		}
+	}
+
+	return movieResults, nil
+}
+
+type movieUploadJob struct {
+	movieID  string
+	index    int
+	path     string
+	fileName string
+	uploadID string
+}
+
+type movieUploadResult struct {
+	movieID string
+	index   int
+	result  *FastpicUploadResult
+	err     error
+}
+
+func (s *SpoilerService) uploadAllScreenshotsConcurrently(screenshotResults map[string]movieScreenshotCollection) error {
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
 
-	// Create temporary directory for screenshots
-	tempDir, err := os.MkdirTemp("", "screenshots_*")
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Get video duration
-	duration, err := s.getVideoDuration(filePath)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get video duration: %v", err)
-	}
-
-	log.Printf("Generating %d screenshots for %s (duration: %.2fs)", s.settings.ScreenshotCount, filepath.Base(filePath), duration)
-
-	// Generate screenshots at regular intervals
-	var screenshotPaths []string
-	interval := duration / float64(s.settings.ScreenshotCount+1)
-
-	for i := 1; i <= s.settings.ScreenshotCount; i++ {
-		// Check for cancellation before generating each screenshot
-		select {
-		case <-s.cancelCtx.Done():
-			return nil, "", fmt.Errorf("screenshot generation cancelled: %v", s.cancelCtx.Err())
-		default:
-		}
-
-		timestamp := interval * float64(i)
-		screenshotPath := filepath.Join(tempDir, fmt.Sprintf("screenshot_%d.jpg", i))
-
-		err := s.generateScreenshot(filePath, screenshotPath, timestamp)
-		if err != nil {
-			log.Printf("Failed to generate screenshot %d for %s: %v", i, filepath.Base(filePath), err)
-			continue
-		}
-		screenshotPaths = append(screenshotPaths, screenshotPath)
-	}
-
-	if len(screenshotPaths) == 0 {
-		return nil, "", fmt.Errorf("no screenshots generated")
-	}
-
-	log.Printf("Generated %d screenshots, starting upload...", len(screenshotPaths))
-
-	// Update state to uploading using movie ID instead of path
-	s.updateMovieByID(movieID, func(m *Movie) {
-		m.ProcessingState = StateUploadingScreenshots
-	})
-	s.emitState()
-
-	// Check for cancellation before getting upload ID
-	select {
-	case <-s.cancelCtx.Done():
-		return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
-	default:
-	}
-
-	// Get fastpic upload ID with context
+	// Get upload ID once for all uploads
 	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get fastpic upload ID: %v", err)
+		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
 
-	// Upload screenshots to fastpic
-	var screenshotURLs []string
-	var albumURL string
+	// Collect all upload jobs from all movies
+	var allUploadJobs []movieUploadJob
+	totalJobs := 0
 
-	for i, screenshotPath := range screenshotPaths {
-		// Check for cancellation before each upload
-		select {
-		case <-s.cancelCtx.Done():
-			return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
-		default:
-		}
-
-		fileName := fmt.Sprintf("%s_screenshot_%d.jpg", strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath)), i+1)
-
-		log.Printf("Uploading screenshot %d/%d: %s", i+1, len(screenshotPaths), fileName)
-
-		// Upload with context
-		result, err := fastpicService.uploadToFastpic(s.cancelCtx, screenshotPath, fileName, uploadID)
-		if err != nil {
-			log.Printf("Failed to upload screenshot %s: %v", fileName, err)
-			// If cancelled, return immediately
-			if s.cancelCtx.Err() != nil {
-				return nil, "", fmt.Errorf("upload cancelled: %v", s.cancelCtx.Err())
-			}
+	for movieID, collection := range screenshotResults {
+		movie, exists := s.getMovieByID(movieID)
+		if !exists {
 			continue
 		}
 
-		screenshotURLs = append(screenshotURLs, result.BBThumb)
-		if albumURL == "" {
-			albumURL = result.AlbumLink
-		}
+		for i, screenshotPath := range collection.paths {
+			if screenshotPath == "" { // Skip failed screenshots
+				continue
+			}
 
-		log.Printf("Successfully uploaded screenshot %d: %s", i+1, result.BBThumb)
-	}
+			fileName := fmt.Sprintf("%s_screenshot_%d.jpg",
+				strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath)), i+1)
 
-	if len(screenshotURLs) == 0 {
-		return nil, "", fmt.Errorf("failed to upload any screenshots")
-	}
-
-	log.Printf("Successfully uploaded %d/%d screenshots", len(screenshotURLs), len(screenshotPaths))
-	return screenshotURLs, albumURL, nil
-}
-
-func (s *SpoilerService) findMovieIndexByPath(filePath string) int {
-	for i, movie := range s.movies {
-		if movie.FilePath == filePath {
-			return i
+			allUploadJobs = append(allUploadJobs, movieUploadJob{
+				movieID:  movieID,
+				index:    i,
+				path:     screenshotPath,
+				fileName: fileName,
+				uploadID: uploadID,
+			})
+			totalJobs++
 		}
 	}
-	return -1
+
+	if totalJobs == 0 {
+		return fmt.Errorf("no screenshots to upload")
+	}
+
+	log.Printf("Uploading %d total screenshots with %d parallel workers",
+		totalJobs, s.settings.MaxConcurrentUploads)
+
+	// Process uploads concurrently
+	uploadJobs := make(chan movieUploadJob, totalJobs)
+	uploadResults := make(chan movieUploadResult, totalJobs)
+
+	// Start upload workers
+	var uploadWg sync.WaitGroup
+	maxUploadWorkers := s.settings.MaxConcurrentUploads
+	if maxUploadWorkers <= 0 {
+		maxUploadWorkers = 1
+	}
+
+	for i := 0; i < maxUploadWorkers; i++ {
+		uploadWg.Add(1)
+		go func() {
+			defer uploadWg.Done()
+			for job := range uploadJobs {
+				select {
+				case <-s.cancelCtx.Done():
+					uploadResults <- movieUploadResult{movieID: job.movieID, index: job.index, err: fmt.Errorf("cancelled")}
+					return
+				default:
+				}
+
+				log.Printf("Uploading %s (movie %s, screenshot %d)", job.fileName, job.movieID[:8], job.index+1)
+				result, err := fastpicService.uploadToFastpic(s.cancelCtx, job.path, job.fileName, job.uploadID)
+				uploadResults <- movieUploadResult{
+					movieID: job.movieID,
+					index:   job.index,
+					result:  result,
+					err:     err,
+				}
+			}
+		}()
+	}
+
+	// Send upload jobs
+	go func() {
+		defer close(uploadJobs)
+		for _, job := range allUploadJobs {
+			uploadJobs <- job
+		}
+	}()
+
+	// Collect upload results
+	go func() {
+		uploadWg.Wait()
+		close(uploadResults)
+	}()
+
+	// Organize results by movie
+	movieUploadData := make(map[string]struct {
+		urls     []string
+		albumURL string
+	})
+
+	for movieID := range screenshotResults {
+		movieUploadData[movieID] = struct {
+			urls     []string
+			albumURL string
+		}{
+			urls: make([]string, s.settings.ScreenshotCount),
+		}
+	}
+
+	successCount := 0
+	for result := range uploadResults {
+		if result.err != nil {
+			if s.cancelCtx.Err() != nil {
+				return fmt.Errorf("upload cancelled")
+			}
+			log.Printf("Failed to upload screenshot %d for movie %s: %v", result.index+1, result.movieID, result.err)
+			continue
+		}
+
+		if data, exists := movieUploadData[result.movieID]; exists {
+			data.urls[result.index] = result.result.BBThumb
+			if data.albumURL == "" {
+				data.albumURL = result.result.AlbumLink
+			}
+			movieUploadData[result.movieID] = data
+			successCount++
+		}
+
+		log.Printf("Successfully uploaded screenshot %d for movie %s", result.index+1, result.movieID[:8])
+	}
+
+	log.Printf("Successfully uploaded %d/%d screenshots", successCount, totalJobs)
+
+	// Update movies with upload results
+	for movieID, data := range movieUploadData {
+		// Filter out empty URLs and create final list
+		var finalURLs []string
+		for _, url := range data.urls {
+			if url != "" {
+				finalURLs = append(finalURLs, url)
+			}
+		}
+
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ScreenshotURLs = finalURLs
+			m.ScreenshotAlbum = data.albumURL
+			if len(finalURLs) == 0 {
+				m.ProcessingState = StateError
+				m.ProcessingError = "No screenshots uploaded successfully"
+			}
+		})
+	}
+
+	return nil
 }
 
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
@@ -548,7 +712,6 @@ func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
 
 	output, err := cmd.Output()
 	if err != nil {
-		// Check if error is due to context cancellation
 		if s.cancelCtx.Err() != nil {
 			return 0, fmt.Errorf("duration check cancelled: %v", s.cancelCtx.Err())
 		}
@@ -575,7 +738,6 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 
 	err := cmd.Run()
 	if err != nil {
-		// Check if error is due to context cancellation
 		if s.cancelCtx.Err() != nil {
 			return fmt.Errorf("screenshot generation cancelled: %v", s.cancelCtx.Err())
 		}
@@ -586,7 +748,6 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 }
 
 func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, error) {
-	// Use a simple command without cancellation context for immediate analysis
 	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
@@ -717,7 +878,6 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 	return files, nil
 }
 
-// GenerateResultForMovie generates spoiler for a single movie
 func (s *SpoilerService) GenerateResultForMovie(movieID string) string {
 	var movie *Movie
 	for _, m := range s.movies {
@@ -734,7 +894,6 @@ func (s *SpoilerService) GenerateResultForMovie(movieID string) string {
 	return s.generateMovieSpoiler(*movie)
 }
 
-// GenerateResult generates the formatted spoiler list for all movies
 func (s *SpoilerService) GenerateResult() string {
 	if len(s.movies) == 0 {
 		return ""

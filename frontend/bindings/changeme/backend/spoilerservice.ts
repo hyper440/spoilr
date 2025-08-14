@@ -25,16 +25,10 @@ export function ClearMovies(): $CancellablePromise<void> {
     return $Call.ByID(3366575601);
 }
 
-/**
- * GenerateResult generates the formatted spoiler list for all movies
- */
 export function GenerateResult(): $CancellablePromise<string> {
     return $Call.ByID(1858085317);
 }
 
-/**
- * GenerateResultForMovie generates spoiler for a single movie
- */
 export function GenerateResultForMovie(movieID: string): $CancellablePromise<string> {
     return $Call.ByID(2420383732, movieID);
 }
@@ -75,9 +69,6 @@ export function RemoveMovie(id: string): $CancellablePromise<void> {
     return $Call.ByID(2824633037, id);
 }
 
-/**
- * ReorderMovies updates the order of movies in the backend to match the provided order
- */
 export function ReorderMovies(newOrder: string[]): $CancellablePromise<void> {
     return $Call.ByID(3360971939, newOrder);
 }

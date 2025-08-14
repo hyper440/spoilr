@@ -47,13 +47,15 @@ type MediaInfo struct {
 
 // AppSettings represents application settings
 type AppSettings struct {
-	HideEmpty         bool   `json:"hideEmpty"`
-	UIFontSize        int    `json:"uiFontSize"`
-	ListFontSize      int    `json:"listFontSize"`
-	TextFontSize      int    `json:"textFontSize"`
-	ScreenshotCount   int    `json:"screenshotCount"`
-	FastpicSID        string `json:"fastpicSid"`
-	ScreenshotQuality int    `json:"screenshotQuality"`
+	HideEmpty                bool   `json:"hideEmpty"`
+	UIFontSize               int    `json:"uiFontSize"`
+	ListFontSize             int    `json:"listFontSize"`
+	TextFontSize             int    `json:"textFontSize"`
+	ScreenshotCount          int    `json:"screenshotCount"`
+	FastpicSID               string `json:"fastpicSid"`
+	ScreenshotQuality        int    `json:"screenshotQuality"`
+	MaxConcurrentScreenshots int    `json:"maxConcurrentScreenshots"` // Max parallel screenshot generation
+	MaxConcurrentUploads     int    `json:"maxConcurrentUploads"`     // Max parallel uploads
 }
 
 // FastpicUploadResult represents the result of fastpic upload
