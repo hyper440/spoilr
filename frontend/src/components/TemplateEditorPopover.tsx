@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Edit, RotateCcw } from "lucide-react";
 interface TemplateEditorProps {
   template: string;
   onTemplateChange: (template: string) => void;
-  onResetToDefault: () => void; // Add this prop to handle reset
+  onResetToDefault: () => void;
 }
 
 interface TemplateParam {
@@ -19,6 +19,7 @@ interface TemplateParam {
 export default function TemplateEditor({ template, onTemplateChange, onResetToDefault }: TemplateEditorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState(template);
+  const [cursorPosition, setCursorPosition] = useState(0);
 
   useEffect(() => {
     setCurrentTemplate(template);
@@ -42,13 +43,27 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      // Reset to current template when opening
       setCurrentTemplate(template);
     }
   };
 
   const handleParamClick = (param: string) => {
-    setCurrentTemplate(currentTemplate + param);
+    const start = cursorPosition;
+    const end = cursorPosition;
+
+    const newValue = currentTemplate.substring(0, start) + param + currentTemplate.substring(end);
+    setCurrentTemplate(newValue);
+    setCursorPosition(start + param.length);
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCurrentTemplate(e.target.value);
+    setCursorPosition(e.target.selectionStart);
+  };
+
+  const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    setCursorPosition(target.selectionStart);
   };
 
   const handleResetToDefault = () => {
@@ -83,7 +98,10 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
 
           <Textarea
             value={currentTemplate}
-            onChange={(e) => setCurrentTemplate(e.target.value)}
+            onChange={handleTextareaChange}
+            onSelect={handleTextareaSelect}
+            onKeyUp={handleTextareaSelect}
+            onClick={handleTextareaSelect}
             className="min-h-[200px] font-mono text-sm"
             placeholder="Enter your template here..."
           />
