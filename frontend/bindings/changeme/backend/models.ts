@@ -9,28 +9,19 @@ import { Create as $Create } from "@wailsio/runtime";
  * AppSettings represents application settings
  */
 export class AppSettings {
-    "language": string;
-    "convertToGb": boolean;
     "centerAlign": boolean;
-    "acceptOnlyLinks": boolean;
     "hideEmpty": boolean;
     "uiFontSize": number;
     "listFontSize": number;
     "textFontSize": number;
+    "screenshotCount": number;
+    "fastpicSid": string;
+    "screenshotQuality": number;
 
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
-        if (!("language" in $$source)) {
-            this["language"] = "";
-        }
-        if (!("convertToGb" in $$source)) {
-            this["convertToGb"] = false;
-        }
         if (!("centerAlign" in $$source)) {
             this["centerAlign"] = false;
-        }
-        if (!("acceptOnlyLinks" in $$source)) {
-            this["acceptOnlyLinks"] = false;
         }
         if (!("hideEmpty" in $$source)) {
             this["hideEmpty"] = false;
@@ -43,6 +34,15 @@ export class AppSettings {
         }
         if (!("textFontSize" in $$source)) {
             this["textFontSize"] = 0;
+        }
+        if (!("screenshotCount" in $$source)) {
+            this["screenshotCount"] = 0;
+        }
+        if (!("fastpicSid" in $$source)) {
+            this["fastpicSid"] = "";
+        }
+        if (!("screenshotQuality" in $$source)) {
+            this["screenshotQuality"] = 0;
         }
 
         Object.assign(this, $$source);
@@ -58,50 +58,6 @@ export class AppSettings {
 }
 
 /**
- * LinkProcessResult represents the result of link processing
- */
-export class LinkProcessResult {
-    "originalLinks": string[];
-    "processedLinks": string[];
-    "errors": string[];
-
-    /** Creates a new LinkProcessResult instance. */
-    constructor($$source: Partial<LinkProcessResult> = {}) {
-        if (!("originalLinks" in $$source)) {
-            this["originalLinks"] = [];
-        }
-        if (!("processedLinks" in $$source)) {
-            this["processedLinks"] = [];
-        }
-        if (!("errors" in $$source)) {
-            this["errors"] = [];
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new LinkProcessResult instance from a string or object.
-     */
-    static createFrom($$source: any = {}): LinkProcessResult {
-        const $$createField0_0 = $$createType0;
-        const $$createField1_0 = $$createType0;
-        const $$createField2_0 = $$createType0;
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("originalLinks" in $$parsedSource) {
-            $$parsedSource["originalLinks"] = $$createField0_0($$parsedSource["originalLinks"]);
-        }
-        if ("processedLinks" in $$parsedSource) {
-            $$parsedSource["processedLinks"] = $$createField1_0($$parsedSource["processedLinks"]);
-        }
-        if ("errors" in $$parsedSource) {
-            $$parsedSource["errors"] = $$createField2_0($$parsedSource["errors"]);
-        }
-        return new LinkProcessResult($$parsedSource as Partial<LinkProcessResult>);
-    }
-}
-
-/**
  * Movie represents a media file with its metadata
  */
 export class Movie {
@@ -113,8 +69,19 @@ export class Movie {
     "duration": string;
     "width": string;
     "height": string;
-    "screenListURL": string;
+    "bitRate": string;
+    "videoBitRate": string;
+    "audioBitRate": string;
+    "videoCodec": string;
+    "audioCodec": string;
+    "screenshotUrls": string[];
+    "screenshotAlbum": string;
     "params": { [_: string]: string };
+
+    /**
+     * "pending", "processing", "completed", "error"
+     */
+    "processingState": string;
 
     /** Creates a new Movie instance. */
     constructor($$source: Partial<Movie> = {}) {
@@ -142,11 +109,32 @@ export class Movie {
         if (!("height" in $$source)) {
             this["height"] = "";
         }
-        if (!("screenListURL" in $$source)) {
-            this["screenListURL"] = "";
+        if (!("bitRate" in $$source)) {
+            this["bitRate"] = "";
+        }
+        if (!("videoBitRate" in $$source)) {
+            this["videoBitRate"] = "";
+        }
+        if (!("audioBitRate" in $$source)) {
+            this["audioBitRate"] = "";
+        }
+        if (!("videoCodec" in $$source)) {
+            this["videoCodec"] = "";
+        }
+        if (!("audioCodec" in $$source)) {
+            this["audioCodec"] = "";
+        }
+        if (!("screenshotUrls" in $$source)) {
+            this["screenshotUrls"] = [];
+        }
+        if (!("screenshotAlbum" in $$source)) {
+            this["screenshotAlbum"] = "";
         }
         if (!("params" in $$source)) {
             this["params"] = {};
+        }
+        if (!("processingState" in $$source)) {
+            this["processingState"] = "";
         }
 
         Object.assign(this, $$source);
@@ -156,10 +144,14 @@ export class Movie {
      * Creates a new Movie instance from a string or object.
      */
     static createFrom($$source: any = {}): Movie {
-        const $$createField9_0 = $$createType1;
+        const $$createField13_0 = $$createType0;
+        const $$createField15_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("screenshotUrls" in $$parsedSource) {
+            $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
+        }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField9_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField15_0($$parsedSource["params"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }

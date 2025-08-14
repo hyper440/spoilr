@@ -13,57 +13,45 @@ import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/applicati
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-/**
- * AddMovie adds a single movie
- */
 export function AddMovie(movie: $models.Movie): $CancellablePromise<void> {
     return $Call.ByID(2167188870, movie);
 }
 
 /**
- * ClearMovies removes all movies
+ * AddPendingFiles adds files to the list with pending status
  */
+export function AddPendingFiles(filePaths: string[]): $CancellablePromise<void> {
+    return $Call.ByID(3518933892, filePaths);
+}
+
 export function ClearMovies(): $CancellablePromise<void> {
     return $Call.ByID(3366575601);
 }
 
-/**
- * EmitProgress emits a progress event through the Wails event system
- */
 export function EmitProgress(progress: $models.ProcessProgress): $CancellablePromise<void> {
     return $Call.ByID(2779484171, progress);
 }
 
 /**
- * Link filtering
- */
-export function FilterLinks(text: string, allowFilters: string[], blockFilters: string[]): $CancellablePromise<[string[], string[]]> {
-    return $Call.ByID(777849334, text, allowFilters, blockFilters).then(($result: any) => {
-        $result[0] = $$createType0($result[0]);
-        $result[1] = $$createType0($result[1]);
-        return $result;
-    });
-}
-
-/**
- * GenerateResult generates the formatted spoiler list
+ * GenerateResult generates the formatted spoiler list for all movies
  */
 export function GenerateResult(): $CancellablePromise<string> {
     return $Call.ByID(1858085317);
 }
 
 /**
- * GetExpandedFilePaths expands directories to individual files
+ * GenerateResultForMovie generates spoiler for a single movie
  */
+export function GenerateResultForMovie(movieID: number): $CancellablePromise<string> {
+    return $Call.ByID(2420383732, movieID);
+}
+
 export function GetExpandedFilePaths(paths: string[]): $CancellablePromise<string[]> {
     return $Call.ByID(2612523930, paths).then(($result: any) => {
         return $$createType0($result);
     });
 }
 
-/**
- * GetMovies returns all movies
- */
 export function GetMovies(): $CancellablePromise<$models.Movie[]> {
     return $Call.ByID(1376886268).then(($result: any) => {
         return $$createType2($result);
@@ -86,48 +74,18 @@ export function GetTemplate(): $CancellablePromise<string> {
     return $Call.ByID(841079811);
 }
 
-/**
- * ProcessFiles processes multiple file paths and emits progress events
- */
 export function ProcessFiles(filePaths: string[]): $CancellablePromise<void> {
     return $Call.ByID(768775415, filePaths);
 }
 
-/**
- * ProcessFilesAsync starts processing files asynchronously and emits progress events
- */
 export function ProcessFilesAsync(filePaths: string[]): $CancellablePromise<void> {
     return $Call.ByID(4139121497, filePaths);
 }
 
-/**
- * Link processing (unbender)
- */
-export function ProcessLinks(text: string, replaceInOriginal: boolean): $CancellablePromise<$models.LinkProcessResult> {
-    return $Call.ByID(3738831569, text, replaceInOriginal).then(($result: any) => {
-        return $$createType4($result);
-    });
-}
-
-/**
- * ProcessURLs processes clipboard URLs
- */
-export function ProcessURLs(text: string, acceptOnlyLinks: boolean): $CancellablePromise<$models.Movie[]> {
-    return $Call.ByID(3668167646, text, acceptOnlyLinks).then(($result: any) => {
-        return $$createType2($result);
-    });
-}
-
-/**
- * RemoveMovie removes a movie by ID
- */
 export function RemoveMovie(id: number): $CancellablePromise<void> {
     return $Call.ByID(2824633037, id);
 }
 
-/**
- * SetApp sets the application instance for event emission
- */
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {
     return $Call.ByID(671908240, app);
 }
@@ -145,4 +103,3 @@ const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $models.Movie.createFrom;
 const $$createType2 = $Create.Array($$createType1);
 const $$createType3 = $models.AppSettings.createFrom;
-const $$createType4 = $models.LinkProcessResult.createFrom;

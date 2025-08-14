@@ -8,7 +8,6 @@ export {
 
 export {
     AppSettings,
-    LinkProcessResult,
     Movie,
     ProcessProgress
 } from "./models.js";

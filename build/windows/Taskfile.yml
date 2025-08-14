@@ -18,8 +18,8 @@ tasks:
     cmds:
       - task: generate:syso
       - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}.exe
-      - cmd: powershell Remove-item *.syso
-        platforms: [windows]
+      # - cmd: powershell Remove-item *.syso
+      #   platforms: [windows]
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
@@ -33,14 +33,19 @@ tasks:
   package:
     summary: Packages a production build of the application
     cmds:
-      - |-
-        if [ "{{.FORMAT | default "nsis"}}" = "msix" ]; then
-          task: create:msix:package
-        else
-          task: create:nsis:installer
-        fi
+      - task: package:{{.FORMAT | default "nsis"}}
     vars:
       FORMAT: '{{.FORMAT | default "nsis"}}'
+
+  package:nsis:
+    summary: Creates an NSIS installer package
+    cmds:
+      - task: create:nsis:installer
+
+  package:msix:
+    summary: Creates an MSIX package
+    cmds:
+      - task: create:msix:package
 
   generate:syso:
     summary: Generates Windows `.syso` file
@@ -60,7 +65,8 @@ tasks:
     cmds:
       # Create the Microsoft WebView2 bootstrapper if it doesn't exist
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
-      - makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR}}/{{.BIN_DIR}}/{{.APP_NAME}}.exe" project.nsi
+      - cmd: makensis -DARG_WAILS_{{.ARG_FLAG}}_BINARY="{{.ROOT_DIR | replace "/" "\\"}}\\{{.BIN_DIR}}\\{{.APP_NAME}}.exe" project.nsi
+        platforms: [windows]
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
       ARG_FLAG: '{{if eq .ARCH "amd64"}}AMD64{{else}}ARM64{{end}}'

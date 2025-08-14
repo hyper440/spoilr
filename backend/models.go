@@ -2,16 +2,23 @@ package backend
 
 // Movie represents a media file with its metadata
 type Movie struct {
-	ID            int               `json:"id"`
-	FileName      string            `json:"fileName"`
-	FilePath      string            `json:"filePath"`
-	FileSize      string            `json:"fileSize"`
-	FileSizeBytes int64             `json:"fileSizeBytes"`
-	Duration      string            `json:"duration"`
-	Width         string            `json:"width"`
-	Height        string            `json:"height"`
-	ScreenListURL string            `json:"screenListURL"`
-	Params        map[string]string `json:"params"`
+	ID              int               `json:"id"`
+	FileName        string            `json:"fileName"`
+	FilePath        string            `json:"filePath"`
+	FileSize        string            `json:"fileSize"`
+	FileSizeBytes   int64             `json:"fileSizeBytes"`
+	Duration        string            `json:"duration"`
+	Width           string            `json:"width"`
+	Height          string            `json:"height"`
+	BitRate         string            `json:"bitRate"`
+	VideoBitRate    string            `json:"videoBitRate"`
+	AudioBitRate    string            `json:"audioBitRate"`
+	VideoCodec      string            `json:"videoCodec"`
+	AudioCodec      string            `json:"audioCodec"`
+	ScreenshotURLs  []string          `json:"screenshotUrls"`
+	ScreenshotAlbum string            `json:"screenshotAlbum"`
+	Params          map[string]string `json:"params"`
+	ProcessingState string            `json:"processingState"` // "pending", "processing", "completed", "error"
 }
 
 // MediaInfo represents extracted media information
@@ -33,21 +40,24 @@ type ProcessProgress struct {
 
 // AppSettings represents application settings
 type AppSettings struct {
-	Language        string `json:"language"`
-	ConvertToGB     bool   `json:"convertToGb"`
-	CenterAlign     bool   `json:"centerAlign"`
-	AcceptOnlyLinks bool   `json:"acceptOnlyLinks"`
-	HideEmpty       bool   `json:"hideEmpty"`
-	UIFontSize      int    `json:"uiFontSize"`
-	ListFontSize    int    `json:"listFontSize"`
-	TextFontSize    int    `json:"textFontSize"`
+	CenterAlign       bool   `json:"centerAlign"`
+	HideEmpty         bool   `json:"hideEmpty"`
+	UIFontSize        int    `json:"uiFontSize"`
+	ListFontSize      int    `json:"listFontSize"`
+	TextFontSize      int    `json:"textFontSize"`
+	ScreenshotCount   int    `json:"screenshotCount"`
+	FastpicSID        string `json:"fastpicSid"`
+	ScreenshotQuality int    `json:"screenshotQuality"`
 }
 
-// LinkProcessResult represents the result of link processing
-type LinkProcessResult struct {
-	OriginalLinks  []string `json:"originalLinks"`
-	ProcessedLinks []string `json:"processedLinks"`
-	Errors         []string `json:"errors"`
+// FastpicUploadResult represents the result of fastpic upload
+type FastpicUploadResult struct {
+	AlbumLink string `json:"albumLink"`
+	Direct    string `json:"direct"`
+	BBThumb   string `json:"bbThumb"`
+	BBBig     string `json:"bbBig"`
+	HTMLThumb string `json:"htmlThumb"`
+	MDThumb   string `json:"mdThumb"`
 }
 
 // TemplateData represents data for template processing
