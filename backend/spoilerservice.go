@@ -880,13 +880,25 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 	return mediaInfo, nil
 }
 
+func (s *SpoilerService) isVideoFile(filePath string) (bool, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=codec_type",
+		"-of", "csv=p=0",
+		filePath,
+	)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return false, nil // Not a video file or ffprobe failed
+	}
+
+	return strings.TrimSpace(string(output)) == "video", nil
+}
+
 func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) {
 	var files []string
-	videoExtensions := map[string]bool{
-		".mp4": true, ".avi": true, ".mkv": true, ".mov": true,
-		".wmv": true, ".flv": true, ".webm": true, ".m4v": true,
-		".mpg": true, ".mpeg": true, ".3gp": true, ".ogv": true,
-	}
 
 	for _, path := range paths {
 		info, err := os.Stat(path)
@@ -901,8 +913,9 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 				}
 
 				if !d.IsDir() {
-					ext := strings.ToLower(filepath.Ext(filePath))
-					if videoExtensions[ext] {
+					// Check if file is a video using ffprobe
+					isVideo, err := s.isVideoFile(filePath)
+					if err == nil && isVideo {
 						files = append(files, filePath)
 					}
 				}
@@ -912,8 +925,9 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 				return nil, err
 			}
 		} else {
-			ext := strings.ToLower(filepath.Ext(path))
-			if videoExtensions[ext] {
+			// Check if file is a video using ffprobe
+			isVideo, err := s.isVideoFile(path)
+			if err == nil && isVideo {
 				files = append(files, path)
 			}
 		}
