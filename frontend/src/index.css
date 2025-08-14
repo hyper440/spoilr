@@ -118,3 +118,17 @@
     @apply bg-transparent text-foreground;
   }
 }
+
+* {
+  scrollbar-color: #454a4d #20232400;
+}
+
+@layer utilities {
+  .wails-drag {
+    --wails-draggable: drag;
+  }
+
+  .wails-no-drag {
+    --wails-draggable: none;
+  }
+}

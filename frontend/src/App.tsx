@@ -161,7 +161,7 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <div
-        className="h-screen w-full flex flex-col overflow-hidden
+        className="wails-drag h-screen w-full flex flex-col overflow-hidden
         backdrop-blur-xl shadow-lg 
         bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]"
       >

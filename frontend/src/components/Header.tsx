@@ -19,7 +19,7 @@ export default function Header({
   onUpdateSettings,
 }: HeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="wails-no-drag flex items-center justify-between mb-6">
       <AnimatedText>Spoiler List Generator</AnimatedText>
       <div className="flex items-center gap-4">
         {/* Template Editor Popover */}
