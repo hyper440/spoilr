@@ -64,6 +64,67 @@ func (s *SpoilerService) emitState() {
 	}
 }
 
+func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
+	// Extract basic info
+	if duration, ok := mediaInfo.General["duration"]; ok {
+		if dur, err := strconv.ParseFloat(duration, 64); err == nil {
+			movie.Duration = formatDuration(time.Duration(dur * float64(time.Second)))
+		}
+	}
+
+	if width, ok := mediaInfo.Video["width"]; ok {
+		movie.Width = width
+	}
+
+	if height, ok := mediaInfo.Video["height"]; ok {
+		movie.Height = height
+	}
+
+	// Extract bitrates
+	if bitRate, ok := mediaInfo.Video["bit_rate"]; ok && bitRate != "" {
+		movie.VideoBitRate = formatBitRate(bitRate)
+	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
+		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
+			estimatedVideoBitRate := overall * 0.8
+			movie.VideoBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedVideoBitRate))
+		}
+	}
+
+	if bitRate, ok := mediaInfo.Audio["bit_rate"]; ok && bitRate != "" {
+		movie.AudioBitRate = formatBitRate(bitRate)
+	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
+		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
+			estimatedAudioBitRate := overall * 0.1
+			movie.AudioBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedAudioBitRate))
+		}
+	}
+
+	if codec, ok := mediaInfo.Video["codec_name"]; ok {
+		movie.VideoCodec = codec
+	}
+
+	if codec, ok := mediaInfo.Audio["codec_name"]; ok {
+		movie.AudioCodec = codec
+	}
+
+	if overallBitRate, ok := mediaInfo.General["bit_rate"]; ok {
+		movie.BitRate = formatBitRate(overallBitRate)
+	}
+
+	// Store all parameters
+	for key, value := range mediaInfo.General {
+		movie.Params[fmt.Sprintf("%%General@%s%%", key)] = value
+	}
+
+	for key, value := range mediaInfo.Video {
+		movie.Params[fmt.Sprintf("%%Video@%s%%", key)] = value
+	}
+
+	for key, value := range mediaInfo.Audio {
+		movie.Params[fmt.Sprintf("%%Audio@%s%%", key)] = value
+	}
+}
+
 func (s *SpoilerService) AddMovies(filePaths []string) error {
 	expandedPaths, err := s.GetExpandedFilePaths(filePaths)
 	if err != nil {
@@ -78,15 +139,28 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		}
 
 		movie := Movie{
-			ID:              uuid.New().String(), // Generate new UUID
+			ID:              uuid.New().String(),
 			FileName:        filepath.Base(path),
 			FilePath:        path,
 			FileSize:        formatFileSize(fileInfo.Size()),
 			FileSizeBytes:   fileInfo.Size(),
 			Params:          make(map[string]string),
 			ScreenshotURLs:  make([]string, 0),
-			ProcessingState: StatePending,
+			ProcessingState: StateAnalyzingMedia, // Start with analyzing state
 		}
+
+		// Immediately analyze media info
+		mediaInfo, err := s.getMediaInfoWithFFProbe(path)
+		if err != nil {
+			log.Printf("Failed to analyze media %s: %v", filepath.Base(path), err)
+			movie.ProcessingState = StateError
+			movie.ProcessingError = err.Error()
+		} else {
+			// Extract and set media info
+			s.extractMediaInfo(&movie, mediaInfo)
+			movie.ProcessingState = StatePending // Ready for screenshot processing
+		}
+
 		s.movies = append(s.movies, movie)
 	}
 
@@ -218,89 +292,12 @@ func (s *SpoilerService) processMovie(movieID string) error {
 	default:
 	}
 
-	// Update state to analyzing
-	movie.ProcessingState = StateAnalyzingMedia
-	s.emitState()
-
-	// Get media info
-	mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
-	if err != nil {
-		// Check if it was cancelled
-		if s.cancelCtx.Err() != nil {
-			movie.ProcessingState = StatePending
-			movie.ProcessingError = ""
-		} else {
-			movie.ProcessingState = StateError
-			movie.ProcessingError = err.Error()
-		}
-		s.emitState()
-		return err
+	// Skip if media analysis failed
+	if movie.ProcessingState == StateError {
+		return fmt.Errorf("movie has analysis error: %s", movie.ProcessingError)
 	}
 
-	// ... (existing media info extraction code remains the same) ...
-
-	// Extract basic info
-	if duration, ok := mediaInfo.General["duration"]; ok {
-		if dur, err := strconv.ParseFloat(duration, 64); err == nil {
-			movie.Duration = formatDuration(time.Duration(dur * float64(time.Second)))
-		}
-	}
-
-	if width, ok := mediaInfo.Video["width"]; ok {
-		movie.Width = width
-	}
-
-	if height, ok := mediaInfo.Video["height"]; ok {
-		movie.Height = height
-	}
-
-	// Extract bitrates
-	if bitRate, ok := mediaInfo.Video["bit_rate"]; ok && bitRate != "" {
-		movie.VideoBitRate = formatBitRate(bitRate)
-	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
-		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
-			estimatedVideoBitRate := overall * 0.8
-			movie.VideoBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedVideoBitRate))
-		}
-	}
-
-	if bitRate, ok := mediaInfo.Audio["bit_rate"]; ok && bitRate != "" {
-		movie.AudioBitRate = formatBitRate(bitRate)
-	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
-		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
-			estimatedAudioBitRate := overall * 0.1
-			movie.AudioBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedAudioBitRate))
-		}
-	}
-
-	if codec, ok := mediaInfo.Video["codec_name"]; ok {
-		movie.VideoCodec = codec
-	}
-
-	if codec, ok := mediaInfo.Audio["codec_name"]; ok {
-		movie.AudioCodec = codec
-	}
-
-	if overallBitRate, ok := mediaInfo.General["bit_rate"]; ok {
-		movie.BitRate = formatBitRate(overallBitRate)
-	}
-
-	// Store all parameters
-	for key, value := range mediaInfo.General {
-		movie.Params[fmt.Sprintf("%%General@%s%%", key)] = value
-	}
-
-	for key, value := range mediaInfo.Video {
-		movie.Params[fmt.Sprintf("%%Video@%s%%", key)] = value
-	}
-
-	for key, value := range mediaInfo.Audio {
-		movie.Params[fmt.Sprintf("%%Audio@%s%%", key)] = value
-	}
-
-	s.emitState()
-
-	// Generate screenshots if fastpic SID is configured
+	// Generate screenshots if configured
 	if s.settings.ScreenshotCount > 0 {
 		// Check for cancellation before screenshots
 		select {
@@ -349,7 +346,6 @@ func (s *SpoilerService) processMovie(movieID string) error {
 
 	return nil
 }
-
 func (s *SpoilerService) findMovieIndex(id string) int {
 	for i, movie := range s.movies {
 		if movie.ID == id {
@@ -526,7 +522,8 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 }
 
 func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, error) {
-	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
+	// Use a simple command without cancellation context for immediate analysis
+	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
@@ -536,10 +533,6 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 
 	output, err := cmd.Output()
 	if err != nil {
-		// Check if error is due to context cancellation
-		if s.cancelCtx.Err() != nil {
-			return MediaInfo{}, fmt.Errorf("media analysis cancelled: %v", s.cancelCtx.Err())
-		}
 		return MediaInfo{}, fmt.Errorf("ffprobe failed: %v", err)
 	}
 
@@ -616,6 +609,7 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 
 	return mediaInfo, nil
 }
+
 func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) {
 	var files []string
 	videoExtensions := map[string]bool{
