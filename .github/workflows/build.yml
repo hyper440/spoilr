@@ -55,14 +55,14 @@ jobs:
 
           # Create zip file of the .app bundle
           cd bin
-          zip -r ../release/slg-macos-universal.zip slg.app
+          zip -r ../release/spoiler_list_generator-macos-universal.zip spoiler_list_generator.app
           cd ..
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: release/slg-macos-universal.zip
+          path: release/spoiler_list_generator-macos-universal.zip
 
   build-windows:
     name: Build Windows
@@ -104,14 +104,14 @@ jobs:
 
           # Build the application
           wails3 task production
-          Move-Item -Path "bin\slg.exe" -Destination "release\slg-x64.exe"
-          Remove-Item -Path "bin\slg.exe" -ErrorAction SilentlyContinue
+          Move-Item -Path "bin\spoiler_list_generator.exe" -Destination "release\spoiler_list_generator-x64.exe"
+          Remove-Item -Path "bin\spoiler_list_generator.exe" -ErrorAction SilentlyContinue
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: release/slg-x64.exe
+          path: release/spoiler_list_generator-x64.exe
 
   build-linux:
     name: Build Linux
@@ -151,16 +151,16 @@ jobs:
           wails3 task package
 
           # Generate deb package
-          wails3 tool package -name slg -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
+          wails3 tool package -name spoiler_list_generator -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
 
           # Generate AppImage
           wails3 package
-          mv bin/slg-x86_64.AppImage "release/slg_amd64.AppImage"
-          rm -f bin/slg-x86_64.AppImage
+          mv bin/spoiler_list_generator-x86_64.AppImage "release/spoiler_list_generator_amd64.AppImage"
+          rm -f bin/spoiler_list_generator-x86_64.AppImage
 
           # Rename .deb file if needed
-          if [ -f "release/slg.deb" ]; then
-            mv "release/slg.deb" "release/slg_amd64.deb"
+          if [ -f "release/spoiler_list_generator.deb" ]; then
+            mv "release/spoiler_list_generator.deb" "release/spoiler_list_generator_amd64.deb"
           fi
 
       - name: Upload Linux Artifact
@@ -168,8 +168,8 @@ jobs:
         with:
           name: linux
           path: |
-            release/slg_amd64.deb
-            release/slg_amd64.AppImage
+            release/spoiler_list_generator_amd64.deb
+            release/spoiler_list_generator_amd64.AppImage
 
   create-release:
     name: Create Release
@@ -186,9 +186,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/macos/slg-macos-universal.zip
-            release/windows/slg-x64.exe
-            release/linux/slg_amd64.deb
-            release/linux/slg_amd64.AppImage
+            release/macos/spoiler_list_generator-macos-universal.zip
+            release/windows/spoiler_list_generator-x64.exe
+            release/linux/spoiler_list_generator_amd64.deb
+            release/linux/spoiler_list_generator_amd64.AppImage
           tag_name: ${{ github.ref }}
           draft: true
