@@ -13,7 +13,6 @@ import (
 )
 
 type SpoilerConfig struct {
-	HideEmpty                bool   `json:"hideEmpty" koanf:"hide_empty"`
 	ScreenshotCount          int    `json:"screenshotCount" koanf:"screenshot_count"`
 	FastpicSID               string `json:"fastpicSid" koanf:"fastpic_sid"`
 	ScreenshotQuality        int    `json:"screenshotQuality" koanf:"screenshot_quality"`
@@ -27,7 +26,6 @@ var SpoilerAppConfig SpoilerConfig
 var ConfigPath string
 
 var DefaultSpoilerConfig = SpoilerConfig{
-	HideEmpty:                true,
 	ScreenshotCount:          6,
 	FastpicSID:               "",
 	ScreenshotQuality:        2,
