@@ -185,6 +185,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	}
 
 	// First pass: add all movies with basic info and emit state
+	var movieIDs []string
 	for _, path := range expandedPaths {
 		fileInfo, err := os.Stat(path)
 		if err != nil {
@@ -203,38 +204,41 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		}
 
 		s.movies = append(s.movies, movie)
+		movieIDs = append(movieIDs, movie.ID)
 	}
 	s.emitState()
 
 	// Second pass: process media info concurrently with state updates
 	var wg sync.WaitGroup
-	var mu sync.Mutex // Protects state updates
 
-	for i := range s.movies {
+	for _, movieID := range movieIDs {
 		wg.Add(1)
-		go func(index int) {
+		go func(id string) {
 			defer wg.Done()
 
-			movie := &s.movies[index]
-			if movie.ProcessingState != StateAnalyzingMedia {
+			// Get movie by ID safely
+			movie, exists := s.getMovieByID(id)
+			if !exists || movie.ProcessingState != StateAnalyzingMedia {
 				return
 			}
 
 			mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
 
-			mu.Lock()
-			defer mu.Unlock()
-
+			// Update movie using ID reference
 			if err != nil {
 				log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
-				movie.ProcessingState = StateError
-				movie.ProcessingError = err.Error()
+				s.updateMovieByID(id, func(m *Movie) {
+					m.ProcessingState = StateError
+					m.ProcessingError = err.Error()
+				})
 			} else {
-				s.extractMediaInfo(movie, mediaInfo)
-				movie.ProcessingState = StatePending
+				s.updateMovieByID(id, func(m *Movie) {
+					s.extractMediaInfo(m, mediaInfo)
+					m.ProcessingState = StatePending
+				})
 			}
 			s.emitState() // Emit state after each file is processed
-		}(i)
+		}(movieID)
 	}
 
 	wg.Wait()
