@@ -297,6 +297,25 @@ func (s *SpoilerService) StartProcessing() error {
 	return nil
 }
 
+func (s *SpoilerService) ResetMovieStatuses() {
+	for i := range s.movies {
+		// Reset processing state to pending for all movies that have been analyzed
+		if s.movies[i].ProcessingState != StateAnalyzingMedia {
+			s.movies[i].ProcessingState = StatePending
+		}
+		// Clear any processing errors
+		s.movies[i].ProcessingError = ""
+
+		// Optionally clear processing results (uncomment if you want to clear URLs too)
+		s.movies[i].ThumbnailURL = ""
+		s.movies[i].ThumbnailBigURL = ""
+		s.movies[i].ScreenshotURLs = make([]string, 0)
+		s.movies[i].ScreenshotBigURLs = make([]string, 0)
+		s.movies[i].ScreenshotAlbum = ""
+	}
+	s.emitState()
+}
+
 func (s *SpoilerService) ReorderMovies(newOrder []string) error {
 	movieMap := make(map[string]Movie)
 	for _, movie := range s.movies {

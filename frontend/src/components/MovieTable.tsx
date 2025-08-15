@@ -156,6 +156,20 @@ export default function MovieTable({
             <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
               Clear All
             </Button>
+            {movies.length > 0 && !processing && (
+              <Tooltip>
+                <TooltipTrigger>
+                  <Button
+                    onClick={SpoilerService.ResetMovieStatuses}
+                    variant="outline"
+                    className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-500/20"
+                  >
+                    Reset
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reset statuses to Pending</TooltipContent>
+              </Tooltip>
+            )}
             {completedMovies.length > 0 && (
               <Button onClick={onCopyAllResults} className="bg-gradient-to-r from-green-600 to-emerald-600">
                 Copy All ({completedMovies.length})
@@ -183,7 +197,7 @@ export default function MovieTable({
               {movies.map((movie, index) => (
                 <TableRow
                   key={movie.id}
-                  className="border-white/5 hover:bg-white/2 cursor-pointer"
+                  className="border-white/5 hover:bg-white/2"
                   onMouseEnter={() => movie.processingState === "completed" && handleRowHover(movie.id)}
                 >
                   <TableCell className="text-slate-300">{index + 1}</TableCell>
@@ -249,6 +263,7 @@ export default function MovieTable({
                           <Copy className="w-4 h-4" />
                         </Button>
                       )}
+
                       <Button
                         size="sm"
                         variant="ghost"

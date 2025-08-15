@@ -73,6 +73,10 @@ export function ReorderMovies(newOrder: string[]): $CancellablePromise<void> {
     return $Call.ByID(3360971939, newOrder);
 }
 
+export function ResetMovieStatuses(): $CancellablePromise<void> {
+    return $Call.ByID(2773813152);
+}
+
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {
     return $Call.ByID(671908240, app);
 }
