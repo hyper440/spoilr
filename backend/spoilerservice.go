@@ -353,7 +353,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 
 	// Get upload ID once for all movies
 	fastpicService := NewFastpicService(s.settings.FastpicSID)
-	uploadID, err := fastpicService.getFastpicUploadID(s.cancelCtx)
+	err = fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
@@ -367,7 +367,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		wg.Add(1)
 		go func(movie Movie) {
 			defer wg.Done()
-			s.processMovieWithLimits(movie, tempDir, uploadID)
+			s.processMovieWithLimits(movie, tempDir, fastpicService)
 		}(movie)
 	}
 
@@ -375,7 +375,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	return nil
 }
 
-func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, uploadID string) {
+func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *FastpicService) {
 	// Update status to waiting for screenshot slot
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.ProcessingState = StateWaitingForScreenshotSlot
@@ -432,7 +432,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, upl
 	s.emitState()
 
 	// Upload media with concurrency limits
-	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, uploadID)
+	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, fastpicService)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -569,9 +569,7 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 }
 
 // Upload media with proper concurrency control
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, uploadID string) (string, string, []string, []string, string, error) {
-	fastpicService := NewFastpicService(s.settings.FastpicSID)
-
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *FastpicService) (string, string, []string, []string, string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var uploadStarted bool // Track if any upload has actually started
@@ -605,7 +603,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				mu.Unlock()
 
 				fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
-				result, err := fastpicService.uploadToFastpic(s.cancelCtx, thumbnailPath, fileName, uploadID)
+				result, err := fastpicService.uploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
 				if err != nil {
 					log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
 					return
@@ -648,7 +646,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				mu.Unlock()
 
 				fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
-				result, err := fastpicService.uploadToFastpic(s.cancelCtx, path, fileName, uploadID)
+				result, err := fastpicService.uploadToFastpic(s.cancelCtx, path, fileName)
 				if err != nil {
 					log.Printf("Failed to upload screenshot %d for %s: %v", index+1, movie.FileName, err)
 					return

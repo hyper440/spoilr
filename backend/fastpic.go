@@ -19,19 +19,20 @@ import (
 )
 
 type FastpicService struct {
-	sid string
+	sid      string
+	uploadID string
 }
 
 func NewFastpicService(sid string) *FastpicService {
 	return &FastpicService{sid: sid}
 }
 
-func (f *FastpicService) getFastpicUploadID(ctx context.Context) (string, error) {
+func (f *FastpicService) getFastpicUploadID(ctx context.Context) error {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://new.fastpic.org/", nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %v", err)
+		return fmt.Errorf("failed to create request: %v", err)
 	}
 
 	// Add fp_sid if available
@@ -44,14 +45,14 @@ func (f *FastpicService) getFastpicUploadID(ctx context.Context) (string, error)
 	if err != nil {
 		// Check if error is due to context cancellation
 		if ctx.Err() != nil {
-			return "", fmt.Errorf("request cancelled: %v", ctx.Err())
+			return fmt.Errorf("request cancelled: %v", ctx.Err())
 		}
-		return "", fmt.Errorf("request failed: %v", err)
+		return fmt.Errorf("request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("fastpic returned status code %d", resp.StatusCode)
+		return fmt.Errorf("fastpic returned status code %d", resp.StatusCode)
 	}
 
 	// If no SID was set, try to parse it from Set-Cookie
@@ -71,7 +72,7 @@ func (f *FastpicService) getFastpicUploadID(ctx context.Context) (string, error)
 	// Parse HTML with goquery
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse HTML: %v", err)
+		return fmt.Errorf("failed to parse HTML: %v", err)
 	}
 
 	// Find <script> containing "upload_id"
@@ -86,23 +87,24 @@ func (f *FastpicService) getFastpicUploadID(ctx context.Context) (string, error)
 	})
 
 	if scriptText == "" {
-		return "", fmt.Errorf("could not find script containing upload_id")
+		return fmt.Errorf("could not find script containing upload_id")
 	}
 
 	// Extract upload_id using regex
 	re := regexp.MustCompile(`"upload_id"\s*:\s*'([^']+)'`)
 	matches := re.FindStringSubmatch(scriptText)
 	if len(matches) < 2 {
-		return "", fmt.Errorf("upload_id not found in script")
+		return fmt.Errorf("upload_id not found in script")
 	}
 
 	uploadID := matches[1]
+	f.uploadID = uploadID
 	log.Printf("Successfully obtained fastpic upload ID: %s", uploadID)
-	return uploadID, nil
+	return nil
 }
 
 // uploadToFastpic uploads image to fastpic
-func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName, uploadID string) (*FastpicUploadResult, error) {
+func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName string) (*FastpicUploadResult, error) {
 	log.Printf("Starting upload of %s to fastpic...", fileName)
 
 	if _, err := os.Stat(filePath); err != nil {
@@ -121,7 +123,7 @@ func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName
 	fields := map[string]string{
 		"uploading":                 "1",
 		"fp":                        "not-loaded",
-		"upload_id":                 uploadID,
+		"upload_id":                 f.uploadID,
 		"check_thumb":               "size",
 		"thumb_text":                "",
 		"thumb_size":                "350",
