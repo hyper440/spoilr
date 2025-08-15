@@ -3,7 +3,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Settings } from "lucide-react";
 import { AppSettings } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
 import AnimatedText from "@/components/AnimatedText";
