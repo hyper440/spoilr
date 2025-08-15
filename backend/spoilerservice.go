@@ -45,6 +45,7 @@ func NewSpoilerService() *SpoilerService {
 			ScreenshotQuality:        config.ScreenshotQuality,
 			MaxConcurrentScreenshots: config.MaxConcurrentScreenshots,
 			MaxConcurrentUploads:     config.MaxConcurrentUploads,
+			MtnArgs:                  config.MtnArgs, // Add this line
 		},
 		template:      config.Template,
 		processing:    false,
@@ -980,18 +981,14 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 		return "", nil // Return empty string to skip thumbnail
 	}
 
-	cmd := exec.CommandContext(s.cancelCtx, "mtn",
-		"-b", "2", // Skip frames if blank percentage is higher than 2 (effectively disables blank frame skipping)
-		"-w", "1200", // Output image width of 1200 pixels
-		"-c", "4", // Create 4 columns of thumbnails
-		"-r", "4", // Create 4 rows of thumbnails (overrides time step)
-		"-g", "0", // No gap between thumbnails
-		"-k", "1C1C1C", // Set background color to dark gray (#1C1C1C)
-		"-L", "4:2", // Place info text at upper left (4), timestamp at lower right (2)
-		"-F", "F0FFFF:10", // Set font color to light cyan (F0FFFF) with size 10
-		"-O", tempDir, // Save output files in the specified temporary directory
-		videoPath, // Input video file path
-	)
+	// Parse user-configured MTN arguments
+	mtnArgs := s.parseMtnArgs()
+
+	// Build command arguments: start with "mtn", add user args, add output dir, add video path
+	cmdArgs := append([]string{}, mtnArgs...)
+	cmdArgs = append(cmdArgs, "-O", tempDir, videoPath)
+
+	cmd := exec.CommandContext(s.cancelCtx, "mtn", cmdArgs...)
 
 	// Capture both stdout and stderr for better error reporting
 	output, err := cmd.CombinedOutput()
@@ -1041,6 +1038,7 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 
 	return "", fmt.Errorf("thumbnail file not found after generation - no .jpg files in %s", tempDir)
 }
+
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
 	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
 		"-v", "quiet",
@@ -1324,6 +1322,7 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 		MaxConcurrentScreenshots: settings.MaxConcurrentScreenshots,
 		MaxConcurrentUploads:     settings.MaxConcurrentUploads,
 		Template:                 s.template,
+		MtnArgs:                  settings.MtnArgs,
 	}
 
 	if err := s.configManager.UpdateConfig(config); err != nil {
@@ -1331,6 +1330,43 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 	}
 
 	s.initSemaphores() // Reinitialize semaphores with new limits
+}
+
+func (s *SpoilerService) parseMtnArgs() []string {
+	if s.settings.MtnArgs == "" {
+		// Return default args if empty
+		return []string{"-b", "2", "-w", "1200", "-c", "4", "-r", "4", "-g", "0", "-k", "1C1C1C", "-L", "4:2", "-F", "F0FFFF:10"}
+	}
+
+	// Simple argument parsing - split on spaces but handle quoted arguments
+	args := []string{}
+	current := ""
+	inQuotes := false
+
+	for i, char := range s.settings.MtnArgs {
+		switch char {
+		case '"':
+			inQuotes = !inQuotes
+		case ' ':
+			if !inQuotes {
+				if current != "" {
+					args = append(args, current)
+					current = ""
+				}
+			} else {
+				current += string(char)
+			}
+		default:
+			current += string(char)
+		}
+
+		// Add the last argument if we're at the end
+		if i == len(s.settings.MtnArgs)-1 && current != "" {
+			args = append(args, current)
+		}
+	}
+
+	return args
 }
 
 // Template management

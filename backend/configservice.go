@@ -20,6 +20,7 @@ type SpoilerConfig struct {
 	MaxConcurrentScreenshots int    `json:"maxConcurrentScreenshots" koanf:"max_concurrent_screenshots"`
 	MaxConcurrentUploads     int    `json:"maxConcurrentUploads" koanf:"max_concurrent_uploads"`
 	Template                 string `json:"template" koanf:"template"`
+	MtnArgs                  string `json:"mtnArgs" koanf:"mtn_args"`
 }
 
 var SpoilerAppConfig SpoilerConfig
@@ -33,6 +34,7 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	MaxConcurrentScreenshots: 3,
 	MaxConcurrentUploads:     2,
 	Template:                 "",
+	MtnArgs:                  "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
 }
 
 type ConfigService struct{}
@@ -164,6 +166,9 @@ func loadSpoilerAppConfig() SpoilerConfig {
 	}
 	if c.Template == "" {
 		c.Template = DefaultSpoilerConfig.Template
+	}
+	if c.MtnArgs == "" {
+		c.MtnArgs = DefaultSpoilerConfig.MtnArgs
 	}
 
 	return c

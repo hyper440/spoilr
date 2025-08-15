@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { AppSettings } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
 import AnimatedText from "@/components/AnimatedText";
@@ -35,6 +36,24 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               onChange={(e) => onUpdateSettings({ fastpicSid: e.target.value })}
               placeholder={t("settings.fastpicSidPlaceholder")}
             />
+          </div>
+
+          <Separator />
+
+          {/* MTN Settings */}
+          <div className="space-y-2">
+            <Label htmlFor="mtnArgs" className="text-sm font-medium">
+              {t("settings.mtnArgs")}
+            </Label>
+            <Textarea
+              id="mtnArgs"
+              value={settings.mtnArgs}
+              onChange={(e) => onUpdateSettings({ mtnArgs: e.target.value })}
+              placeholder={t("settings.mtnArgsPlaceholder")}
+              rows={3}
+              className="text-xs font-mono"
+            />
+            <p className="text-xs text-muted-foreground">{t("settings.mtnArgsDescription")}</p>
           </div>
 
           <Separator />

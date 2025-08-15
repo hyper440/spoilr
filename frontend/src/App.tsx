@@ -21,6 +21,7 @@ function AppContent() {
     screenshotQuality: 2,
     maxConcurrentScreenshots: 3,
     maxConcurrentUploads: 2,
+    mtnArgs: "",
   });
   const [template, setTemplate] = useState("");
 

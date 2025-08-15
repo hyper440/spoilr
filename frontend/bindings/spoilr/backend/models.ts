@@ -23,6 +23,11 @@ export class AppSettings {
      */
     "maxConcurrentUploads": number;
 
+    /**
+     * MTN command line arguments
+     */
+    "mtnArgs": string;
+
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("screenshotCount" in $$source)) {
@@ -39,6 +44,9 @@ export class AppSettings {
         }
         if (!("maxConcurrentUploads" in $$source)) {
             this["maxConcurrentUploads"] = 0;
+        }
+        if (!("mtnArgs" in $$source)) {
+            this["mtnArgs"] = "";
         }
 
         Object.assign(this, $$source);
