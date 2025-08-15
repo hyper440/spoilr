@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,6 +23,7 @@ interface MovieTableProps {
   onCopyMovieResult: (id: string) => void;
   onCopyAllResults: () => void;
   onReorderMovies: (newMovies: Movie[]) => void;
+  onSortingChange?: (sorting: SortingState) => void;
 }
 
 export default function MovieTable({
@@ -34,27 +37,11 @@ export default function MovieTable({
   onCopyMovieResult,
   onCopyAllResults,
   onReorderMovies,
+  onSortingChange,
 }: MovieTableProps) {
   const { t } = useTranslation();
   const [localSpoilers, setLocalSpoilers] = useState<Record<string, string>>({});
-
-  // Sort movies by filename and trigger reorder when movies change
-  useEffect(() => {
-    const sortedMovies = [...movies].sort((a, b) =>
-      a.fileName.localeCompare(b.fileName, undefined, {
-        numeric: true,
-        sensitivity: "base",
-        ignorePunctuation: false,
-      })
-    );
-
-    // Check if order changed
-    const orderChanged = movies.some((movie, index) => movie.id !== sortedMovies[index]?.id);
-
-    if (orderChanged) {
-      onReorderMovies(sortedMovies);
-    }
-  }, [movies, onReorderMovies]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: "fileName", desc: false }]);
 
   const handleRowHover = async (movieId: string) => {
     try {
@@ -173,6 +160,201 @@ export default function MovieTable({
     }
   };
 
+  const columns: ColumnDef<Movie>[] = [
+    {
+      accessorKey: "fileName",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="text-slate-300 hover:text-white p-0"
+          >
+            {t("movieTable.headers.fileName")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      sortingFn: (rowA, rowB) => {
+        return rowA.original.fileName.localeCompare(rowB.original.fileName, undefined, {
+          numeric: true,
+          sensitivity: "base",
+          ignorePunctuation: false,
+        });
+      },
+      cell: ({ row }) => {
+        const movie = row.original;
+        return (
+          <div className="font-medium text-white">
+            <div className="max-w-[500px] truncate">
+              {movie.processingState === "completed" ? (
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-white">{t("movieTable.spoilerPreview")}</h4>
+                      <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
+                        {localSpoilers[movie.id] || t("movieTable.loading")}
+                      </pre>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-block w-full truncate">{movie.fileName}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{movie.fileName}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "fileSize",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="text-slate-300 hover:text-white p-0"
+          >
+            {t("movieTable.headers.size")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => <div className="text-slate-300">{row.getValue("fileSize")}</div>,
+    },
+    {
+      accessorKey: "duration",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="text-slate-300 hover:text-white p-0"
+          >
+            {t("movieTable.headers.duration")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => <div className="text-slate-300">{row.getValue("duration")}</div>,
+    },
+    {
+      id: "resolution",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="text-slate-300 hover:text-white p-0"
+          >
+            {t("movieTable.headers.resolution")}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      accessorFn: (row) => parseInt(row.width) * parseInt(row.height),
+      cell: ({ row }) => {
+        const movie = row.original;
+        return (
+          <div className="text-slate-300">
+            {movie.width}x{movie.height}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "processingState",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="text-slate-300 hover:text-white p-0"
+          >
+            Status
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const movie = row.original;
+        return getProcessingBadge(movie.processingState, movie.processingError, movie.errors);
+      },
+    },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => {
+        const movie = row.original;
+        return (
+          <div className="flex gap-1">
+            {movie.processingState === "completed" && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="hover:bg-green-500/20 hover:text-green-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyMovieResult(movie.id);
+                }}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-red-500/20 hover:text-red-400"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveMovie(movie.id);
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        );
+      },
+      enableSorting: false,
+    },
+  ];
+
+  const table = useReactTable({
+    data: movies,
+    columns,
+    onSortingChange: (newSorting) => {
+      setSorting(newSorting);
+      if (onSortingChange) {
+        onSortingChange(typeof newSorting === "function" ? newSorting(sorting) : newSorting);
+      }
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    state: {
+      sorting,
+    },
+  });
+
+  // Update reordering logic to work with table data
+  useEffect(() => {
+    const sortedMovies = table.getRowModel().rows.map((row) => row.original);
+    const orderChanged = movies.some((movie, index) => movie.id !== sortedMovies[index]?.id);
+
+    if (orderChanged) {
+      onReorderMovies(sortedMovies);
+    }
+  }, [table.getRowModel().rows, movies, onReorderMovies]);
+
   const completedMovies = movies.filter((m) => m.processingState === "completed");
 
   return (
@@ -221,95 +403,42 @@ export default function MovieTable({
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[530px]">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-white/5">
-                <TableHead className="text-slate-300">{t("movieTable.headers.index")}</TableHead>
-                <TableHead className="text-slate-300">{t("movieTable.headers.fileName")}</TableHead>
-                <TableHead className="text-slate-300">{t("movieTable.headers.size")}</TableHead>
-                <TableHead className="text-slate-300">{t("movieTable.headers.duration")}</TableHead>
-                <TableHead className="text-slate-300">{t("movieTable.headers.resolution")}</TableHead>
-                <TableHead className="text-slate-300">Status</TableHead>
-                <TableHead className="text-slate-300 w-24"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {movies.map((movie, index) => (
-                <TableRow
-                  key={movie.id}
-                  className="border-white/5 hover:bg-white/2"
-                  onMouseEnter={() => movie.processingState === "completed" && handleRowHover(movie.id)}
-                >
-                  <TableCell className="text-slate-300">{index + 1}</TableCell>
-
-                  <TableCell className="font-medium text-white">
-                    <div className="max-w-[500px] truncate">
-                      {movie.processingState === "completed" ? (
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-semibold text-white">{t("movieTable.spoilerPreview")}</h4>
-                              <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
-                                {localSpoilers[movie.id] || t("movieTable.loading")}
-                              </pre>
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      ) : (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="inline-block w-full truncate">{movie.fileName}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{movie.fileName}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-slate-300">{movie.fileSize}</TableCell>
-                  <TableCell className="text-slate-300">{movie.duration}</TableCell>
-                  <TableCell className="text-slate-300">
-                    {movie.width}x{movie.height}
-                  </TableCell>
-                  <TableCell>{getProcessingBadge(movie.processingState, movie.processingError, movie.errors)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {movie.processingState === "completed" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="hover:bg-green-500/20 hover:text-green-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onCopyMovieResult(movie.id);
-                          }}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="hover:bg-red-500/20 hover:text-red-400"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRemoveMovie(movie.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="overflow-hidden rounded-md border border-white/5">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id} className="border-white/5">
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} className="text-slate-300">
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className="border-white/5 hover:bg-white/2"
+                      onMouseEnter={() => row.original.processingState === "completed" && handleRowHover(row.original.id)}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center text-slate-300">
+                      No movies added.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </ScrollArea>
       </CardContent>
     </Card>
