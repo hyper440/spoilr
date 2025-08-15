@@ -14,31 +14,31 @@ import * as application$0 from "../../github.com/wailsapp/wails/v3/pkg/applicati
 import * as $models from "./models.js";
 
 export function AddMovies(filePaths: string[]): $CancellablePromise<void> {
-    return $Call.ByID(1713676999, filePaths);
+    return $Call.ByID(3392700998, filePaths);
 }
 
 export function CancelProcessing(): $CancellablePromise<void> {
-    return $Call.ByID(3064429438);
+    return $Call.ByID(2842299945);
 }
 
 export function ClearMovies(): $CancellablePromise<void> {
-    return $Call.ByID(3171510169);
+    return $Call.ByID(2972937796);
 }
 
 export function GenerateResult(): $CancellablePromise<string> {
-    return $Call.ByID(3657805917);
+    return $Call.ByID(2136589038);
 }
 
 export function GenerateResultForMovie(movieID: string): $CancellablePromise<string> {
-    return $Call.ByID(2061823948, movieID);
+    return $Call.ByID(3733019759, movieID);
 }
 
 export function GetDefaultTemplate(): $CancellablePromise<string> {
-    return $Call.ByID(2595592496);
+    return $Call.ByID(1750268687);
 }
 
 export function GetExpandedFilePaths(paths: string[]): $CancellablePromise<string[]> {
-    return $Call.ByID(973813346, paths).then(($result: any) => {
+    return $Call.ByID(572084405, paths).then(($result: any) => {
         return $$createType0($result);
     });
 }
@@ -47,13 +47,13 @@ export function GetExpandedFilePaths(paths: string[]): $CancellablePromise<strin
  * Settings management
  */
 export function GetSettings(): $CancellablePromise<$models.AppSettings> {
-    return $Call.ByID(3032029384).then(($result: any) => {
+    return $Call.ByID(2528037945).then(($result: any) => {
         return $$createType1($result);
     });
 }
 
 export function GetState(): $CancellablePromise<$models.AppState> {
-    return $Call.ByID(2500004534).then(($result: any) => {
+    return $Call.ByID(1770976393).then(($result: any) => {
         return $$createType2($result);
     });
 }
@@ -62,35 +62,35 @@ export function GetState(): $CancellablePromise<$models.AppState> {
  * Template management
  */
 export function GetTemplate(): $CancellablePromise<string> {
-    return $Call.ByID(3477835723);
+    return $Call.ByID(2486279326);
 }
 
 export function RemoveMovie(id: string): $CancellablePromise<void> {
-    return $Call.ByID(1918132965, id);
+    return $Call.ByID(2848711252, id);
 }
 
 export function ReorderMovies(newOrder: string[]): $CancellablePromise<void> {
-    return $Call.ByID(496840875, newOrder);
+    return $Call.ByID(1964823934, newOrder);
 }
 
 export function ResetMovieStatuses(): $CancellablePromise<void> {
-    return $Call.ByID(3200334824);
+    return $Call.ByID(1291166359);
 }
 
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {
-    return $Call.ByID(3554972488, app);
+    return $Call.ByID(1525544291, app);
 }
 
 export function SetTemplate(template: string): $CancellablePromise<void> {
-    return $Call.ByID(832888415, template);
+    return $Call.ByID(347943698, template);
 }
 
 export function StartProcessing(): $CancellablePromise<void> {
-    return $Call.ByID(957831002);
+    return $Call.ByID(2555650935);
 }
 
 export function UpdateSettings(settings: $models.AppSettings): $CancellablePromise<void> {
-    return $Call.ByID(1370010191, settings);
+    return $Call.ByID(1698034644, settings);
 }
 
 // Private type creation functions

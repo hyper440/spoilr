@@ -1,8 +1,8 @@
-# Spoiler List Generator
+# Spoilr
 
 A desktop app for creating formatted movie/video spoiler posts with automatic screenshot generation and image hosting.
 
-![demo](/media/slg_demo.webp)
+![demo](/media/spoilr_demo.webp)
 
 ## Features
 

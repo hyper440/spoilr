@@ -4,8 +4,9 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Settings } from "lucide-react";
-import { AppSettings } from "@bindings/slg/backend";
+import { AppSettings } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
+import AnimatedText from "@/components/AnimatedText";
 
 interface SettingsPopoverProps {
   settings: AppSettings;
@@ -17,9 +18,8 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
 
   return (
     <Popover>
-      <PopoverTrigger className=" cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-8 px-2">
-        <Settings className="w-4 h-4 mr-2" />
-        {t("header.settings")}
+      <PopoverTrigger className="cursor-pointer inline-flex items-center justify-center">
+        <AnimatedText>{t("header.settings")}</AnimatedText>
       </PopoverTrigger>
       <PopoverContent className="w-80" side="bottom" align="end">
         <div className="space-y-4">

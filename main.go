@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"slg/backend"
+	"spoilr/backend"
 	"strings"
 
 	"github.com/sqweek/dialog"
@@ -77,7 +77,7 @@ func main() {
 	spoilerService := backend.NewSpoilerService()
 
 	app := application.New(application.Options{
-		Name:        "Spoiler List Generator",
+		Name:        "Spoilr",
 		Description: "Advanced media analyzer with automatic screenshot generation and FastPic upload",
 		Services: []application.Service{
 			application.NewService(spoilerService),
@@ -93,7 +93,7 @@ func main() {
 	spoilerService.SetApp(app)
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:             "Spoiler List Generator",
+		Title:             "Spoilr",
 		EnableDragAndDrop: true,
 		DisableResize:     true,
 		BackgroundColour:  application.NewRGBA(0, 0, 0, 0),

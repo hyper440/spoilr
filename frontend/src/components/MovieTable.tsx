@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Trash2, Copy, FileVideo2Icon, AlertCircle } from "lucide-react";
-import { SpoilerService, Movie } from "@bindings/slg/backend";
+import { SpoilerService, Movie } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
 
 interface MovieTableProps {
@@ -140,7 +140,7 @@ export default function MovieTable({
     <Card className="bg-black/10 border-white/5 wails-no-drag">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-white flex items-center gap-2 select-none">
             <FileVideo2Icon className="w-5 h-5" />
             {t("movieTable.title")} ({movies.length})
           </CardTitle>

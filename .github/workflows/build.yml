@@ -109,19 +109,19 @@ jobs:
 
           # Create zip file of the .app bundle
           cd bin
-          zip -r ../release/spoiler_list_generator-macos-universal.zip spoiler_list_generator.app
+          zip -r ../release/spoilr-macos-universal.zip spoilr.app
           cd ..
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-artifact
-          path: release/spoiler_list_generator-macos-universal.zip
+          path: release/spoilr-macos-universal.zip
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/spoiler_list_generator-macos-universal.zip
+          files: release/spoilr-macos-universal.zip
           tag_name: ${{ needs.prepare-release.outputs.tag_name }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
 
@@ -169,19 +169,19 @@ jobs:
 
           # Build the application with production flags
           task windows:build PRODUCTION=true
-          Move-Item -Path "bin\spoiler_list_generator.exe" -Destination "release\spoiler_list_generator-x64.exe"
-          Remove-Item -Path "bin\spoiler_list_generator.exe" -ErrorAction SilentlyContinue
+          Move-Item -Path "bin\spoilr.exe" -Destination "release\spoilr-x64.exe"
+          Remove-Item -Path "bin\spoilr.exe" -ErrorAction SilentlyContinue
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifact
-          path: release/spoiler_list_generator-x64.exe
+          path: release/spoilr-x64.exe
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/spoiler_list_generator-x64.exe
+          files: release/spoilr-x64.exe
           tag_name: ${{ needs.prepare-release.outputs.tag_name }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
 
@@ -228,15 +228,15 @@ jobs:
           wails3 task package
 
           # Generate deb package
-          wails3 tool package -name spoiler_list_generator -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
+          wails3 tool package -name spoilr -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
 
           # Generate AppImage (optional - skip on failure)
           echo "Attempting to generate AppImage..."
           if wails3 package; then
             echo "AppImage generation successful"
-            if [ -f "bin/spoiler_list_generator-x86_64.AppImage" ]; then
-              mv bin/spoiler_list_generator-x86_64.AppImage "release/spoiler_list_generator_amd64.AppImage"
-              rm -f bin/spoiler_list_generator-x86_64.AppImage
+            if [ -f "bin/spoilr-x86_64.AppImage" ]; then
+              mv bin/spoilr-x86_64.AppImage "release/spoilr_amd64.AppImage"
+              rm -f bin/spoilr-x86_64.AppImage
               echo "AppImage moved to release directory"
             else
               echo "AppImage file not found after generation"
@@ -246,8 +246,8 @@ jobs:
           fi
 
           # Rename .deb file if needed
-          if [ -f "release/spoiler_list_generator.deb" ]; then
-            mv "release/spoiler_list_generator.deb" "release/spoiler_list_generator_amd64.deb"
+          if [ -f "release/spoilr.deb" ]; then
+            mv "release/spoilr.deb" "release/spoilr_amd64.deb"
           fi
 
       - name: Upload Linux Artifact
@@ -255,15 +255,15 @@ jobs:
         with:
           name: linux-artifact
           path: |
-            release/spoiler_list_generator_amd64.deb
-            release/spoiler_list_generator_amd64.AppImage
+            release/spoilr_amd64.deb
+            release/spoilr_amd64.AppImage
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/spoiler_list_generator_amd64.deb
-            release/spoiler_list_generator_amd64.AppImage
+            release/spoilr_amd64.deb
+            release/spoilr_amd64.AppImage
           tag_name: ${{ needs.prepare-release.outputs.tag_name }}
           draft: ${{ github.event_name == 'workflow_dispatch' }}
 

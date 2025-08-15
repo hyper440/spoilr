@@ -5,13 +5,13 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "spoiler_list_generator"
+    !define INFO_PROJECTNAME "spoilr"
 !endif
 !ifndef INFO_COMPANYNAME
     !define INFO_COMPANYNAME "hyper440"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "Spoiler List Generator"
+    !define INFO_PRODUCTNAME "Spoilr"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "1.0.0"

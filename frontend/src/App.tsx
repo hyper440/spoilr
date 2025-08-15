@@ -1,7 +1,7 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider, useTranslation } from "@/contexts/LanguageContext";
 import { useState, useEffect } from "react";
-import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/slg/backend";
+import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/spoilr/backend";
 import { Events, WML } from "@wailsio/runtime";
 import { toast } from "sonner";
 

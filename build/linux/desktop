@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=Spoiler List Generator
+Name=Spoilr
 Comment=Generates spoilers for video files
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/spoiler_list_generator %u
+Exec=/usr/local/bin/spoilr %u
 Terminal=false
 Type=Application
-Icon=spoiler_list_generator
+Icon=spoilr
 Categories=Utility;
-StartupWMClass=spoiler_list_generator
+StartupWMClass=spoilr
 
  

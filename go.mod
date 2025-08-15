@@ -1,4 +1,4 @@
-module slg
+module spoilr
 
 go 1.24.0
 

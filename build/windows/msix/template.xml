@@ -8,7 +8,7 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="spoiler_list_generator.exe"
+        Path="spoilr.exe"
         Arguments=""
         InstallLocation="C:\Program Files\My Company\My Product">
     </Installer>
@@ -25,10 +25,10 @@
         </Capabilities>
         <Applications>
             <Application
-                Id="com.wails.spoiler_list_generator"
+                Id="com.wails.spoilr"
                 Description="My Product Description"
                 DisplayName="My Product"
-                ExecutableName="spoiler_list_generator.exe"
+                ExecutableName="spoilr.exe"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -47,7 +47,7 @@
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="spoiler_list_generator.msix" />
+    <SaveLocation PackagePath="spoilr.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "spoiler_list_generator"
+name: "spoilr"
 arch: ${GOARCH}
 platform: "linux"
 version: "1.0.0"
@@ -17,12 +17,12 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/spoiler_list_generator"
-    dst: "/usr/local/bin/spoiler_list_generator"
+  - src: "./bin/spoilr"
+    dst: "/usr/local/bin/spoilr"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/spoiler_list_generator.png"
-  - src: "./build/linux/spoiler_list_generator.desktop"
-    dst: "/usr/share/applications/spoiler_list_generator.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/spoilr.png"
+  - src: "./build/linux/spoilr.desktop"
+    dst: "/usr/share/applications/spoilr.desktop"
 
 # Default dependencies for Debian 12/Ubuntu 22.04+ with WebKit 4.1
 depends:

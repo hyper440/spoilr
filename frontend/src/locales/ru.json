@@ -1,12 +1,12 @@
 {
     "app": {
-        "title": "Spoiler List Generator"
+        "title": "Spoilr"
     },
     "dropzone": {
         "title": "Перетащите видеофайлы сюда"
     },
     "header": {
-        "editTemplate": "Редактировать шаблон",
+        "editTemplate": "Шаблон",
         "settings": "Настройки"
     },
     "templateEditor": {

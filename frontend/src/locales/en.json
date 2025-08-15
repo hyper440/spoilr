@@ -1,12 +1,12 @@
 {
     "app": {
-        "title": "Spoiler List Generator"
+        "title": "Spoilr"
     },
     "dropzone": {
         "title": "Drop Video Files Anywhere"
     },
     "header": {
-        "editTemplate": "Edit Template",
+        "editTemplate": "Template",
         "settings": "Settings"
     },
     "templateEditor": {
