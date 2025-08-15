@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Settings } from "lucide-react";
-import { AppSettings } from "@bindings/changeme/backend";
+import { AppSettings } from "@bindings/slg/backend";
 
 interface SettingsPopoverProps {
   settings: AppSettings;

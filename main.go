@@ -1,12 +1,12 @@
 package main
 
 import (
-	"changeme/backend"
 	"embed"
 	"errors"
 	"log"
 	"os"
 	"os/exec"
+	"slg/backend"
 	"strings"
 
 	"github.com/sqweek/dialog"

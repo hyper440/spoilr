@@ -3,9 +3,9 @@
 package main
 
 import (
-	"changeme/backend"
 	_ "embed"
 	"errors"
+	"slg/backend"
 )
 
 //go:embed build/windows/nsis/MicrosoftEdgeWebview2Setup.exe

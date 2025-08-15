@@ -1,4 +1,4 @@
-import { AppSettings } from "@bindings/changeme/backend";
+import { AppSettings } from "@bindings/slg/backend";
 import SettingsPopover from "./SettingsPopover";
 import TemplateEditor from "./TemplateEditorPopover";
 import AnimatedText from "@/components/AnimatedText";

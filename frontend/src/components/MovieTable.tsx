@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Trash2, Copy, FileVideo2Icon, AlertCircle } from "lucide-react";
-import { SpoilerService, Movie } from "@bindings/changeme/backend";
+import { SpoilerService, Movie } from "@bindings/slg/backend";
 
 interface MovieTableProps {
   movies: Movie[];

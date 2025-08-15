@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@/components/theme-provider";
 import { useState, useEffect } from "react";
-import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/changeme/backend";
+import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/slg/backend";
 import { Events, WML } from "@wailsio/runtime";
 import { toast } from "sonner";
 
