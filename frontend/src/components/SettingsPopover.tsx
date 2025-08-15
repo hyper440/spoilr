@@ -25,37 +25,6 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
         <div className="space-y-4">
           <h4 className="font-medium text-base">{t("settings.title")}</h4>
 
-          {/* Fastpic Settings */}
-          <div className="space-y-2">
-            <Label htmlFor="fastpicSid" className="text-sm font-medium">
-              {t("settings.fastpicSid")}
-            </Label>
-            <Input
-              id="fastpicSid"
-              value={settings.fastpicSid}
-              onChange={(e) => onUpdateSettings({ fastpicSid: e.target.value })}
-              placeholder={t("settings.fastpicSidPlaceholder")}
-            />
-          </div>
-
-          <Separator />
-
-          {/* MTN Settings */}
-          <div className="space-y-2">
-            <Label htmlFor="mtnArgs" className="text-sm font-medium">
-              {t("settings.mtnArgs")}
-            </Label>
-            <Textarea
-              id="mtnArgs"
-              value={settings.mtnArgs}
-              onChange={(e) => onUpdateSettings({ mtnArgs: e.target.value })}
-              placeholder={t("settings.mtnArgsPlaceholder")}
-              rows={3}
-              className="text-xs font-mono"
-            />
-            <p className="text-xs text-muted-foreground">{t("settings.mtnArgsDescription")}</p>
-          </div>
-
           <Separator />
 
           {/* Screenshot Settings */}
@@ -107,6 +76,36 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 min={1}
                 step={1}
               />
+            </div>
+            {/* Fastpic Settings */}
+            <div className="space-y-2">
+              <Label htmlFor="fastpicSid" className="text-sm font-medium">
+                {t("settings.fastpicSid")}
+              </Label>
+              <Input
+                id="fastpicSid"
+                value={settings.fastpicSid}
+                onChange={(e) => onUpdateSettings({ fastpicSid: e.target.value })}
+                placeholder={t("settings.fastpicSidPlaceholder")}
+              />
+            </div>
+
+            <Separator />
+
+            {/* MTN Settings */}
+            <div className="space-y-2">
+              <Label htmlFor="mtnArgs" className="text-sm font-medium">
+                {t("settings.mtnArgs")}
+              </Label>
+              <Textarea
+                id="mtnArgs"
+                value={settings.mtnArgs}
+                onChange={(e) => onUpdateSettings({ mtnArgs: e.target.value })}
+                placeholder={t("settings.mtnArgsPlaceholder")}
+                rows={3}
+                className="text-xs font-mono"
+              />
+              <p className="text-xs text-muted-foreground">{t("settings.mtnArgsDescription")}</p>
             </div>
           </div>
         </div>
