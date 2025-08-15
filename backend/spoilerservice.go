@@ -83,11 +83,11 @@ func (s *SpoilerService) emitState() {
 }
 
 func (s *SpoilerService) GetDefaultTemplate() string {
-	return `[spoiler="%FILE_NAME%"]
+	return `[spoiler="%FILE_NAME% | %FILE_SIZE%"]
 File: %FILE_NAME%
 Size: %FILE_SIZE%
 Duration: %DURATION%
-Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS (%VIDEO_FPS_FRACTIONAL%) / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
+Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
 Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 
 %THUMBNAIL%
