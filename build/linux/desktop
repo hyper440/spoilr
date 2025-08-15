@@ -1,7 +1,7 @@
 [Desktop Entry]
 Version=1.0
 Name=Spoiler List Generator
-Comment=Generates spoilers for video
+Comment=Generates spoilers for video files
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/spoiler_list_generator %u
 Terminal=false

@@ -10,7 +10,7 @@ version: "1.0.0"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "Generates spoilers for video"
+description: "Generates spoilers for video files"
 vendor: "hyper440"
 homepage: "https://wails.io"
 license: "MIT"

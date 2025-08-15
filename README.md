@@ -2,7 +2,7 @@
 
 A desktop app for creating formatted movie/video spoiler posts with automatic screenshot generation and image hosting.
 
-![alt text](/media/slg_demo.webp)
+![demo](/media/slg_demo.webp)
 
 ## Features
 

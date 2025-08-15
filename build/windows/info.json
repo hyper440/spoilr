@@ -6,7 +6,7 @@
 		"0000": {
 			"ProductVersion": "1.0.0",
 			"CompanyName": "hyper440",
-			"FileDescription": "Generates spoilers for video",
+			"FileDescription": "Generates spoilers for video files",
 			"LegalCopyright": "(c) 2025, hyper440",
 			"ProductName": "Spoiler List Generator",
 			"Comments": "have fun"

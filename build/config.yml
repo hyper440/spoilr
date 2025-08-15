@@ -8,7 +8,7 @@ info:
   companyName: "hyper440" # The name of the company
   productName: "Spoiler List Generator" # The name of the application
   productIdentifier: "local.slg" # The unique product identifier
-  description: "Generates spoilers for video" # The application description
+  description: "Generates spoilers for video files" # The application description
   copyright: "(c) 2025, hyper440" # Copyright text
   comments: "have fun" # Comments
   version: "1.0.0" # The application version
