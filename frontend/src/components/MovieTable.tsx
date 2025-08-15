@@ -156,7 +156,7 @@ export default function MovieTable({
             <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
               Clear All
             </Button>
-            {movies.length > 0 && !processing && (
+            {movies.length !== pendingCount && !processing && (
               <Tooltip>
                 <TooltipTrigger>
                   <Button

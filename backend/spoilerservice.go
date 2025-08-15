@@ -179,12 +179,17 @@ func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
 }
 
 func (s *SpoilerService) AddMovies(filePaths []string) error {
+	// First: expand all file paths without filtering
 	expandedPaths, err := s.GetExpandedFilePaths(filePaths)
 	if err != nil {
 		return err
 	}
 
-	// First pass: add all movies with basic info and emit state
+	if len(expandedPaths) == 0 {
+		return nil
+	}
+
+	// Emit all files as movies with analyzing state
 	var movieIDs []string
 	for _, path := range expandedPaths {
 		fileInfo, err := os.Stat(path)
@@ -208,41 +213,160 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	}
 	s.emitState()
 
-	// Second pass: process media info concurrently with state updates
+	// Second: check each file and remove non-video files
 	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var validMovieIDs []string
 
 	for _, movieID := range movieIDs {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
 
-			// Get movie by ID safely
 			movie, exists := s.getMovieByID(id)
-			if !exists || movie.ProcessingState != StateAnalyzingMedia {
+			if !exists {
 				return
 			}
 
-			mediaInfo, err := s.getMediaInfoWithFFProbe(movie.FilePath)
+			mediaInfo, isVideo, err := s.getVideoMediaInfo(movie.FilePath)
 
-			// Update movie using ID reference
-			if err != nil {
-				log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
-				s.updateMovieByID(id, func(m *Movie) {
-					m.ProcessingState = StateError
-					m.ProcessingError = err.Error()
-				})
+			mu.Lock()
+			defer mu.Unlock()
+
+			if !isVideo || err != nil {
+				// Remove non-video file
+				for i, m := range s.movies {
+					if m.ID == id {
+						s.movies = append(s.movies[:i], s.movies[i+1:]...)
+						break
+					}
+				}
+				if err != nil {
+					log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
+				} else {
+					log.Printf("Skipped non-video file: %s", movie.FileName)
+				}
 			} else {
+				// Update video file with media info
 				s.updateMovieByID(id, func(m *Movie) {
 					s.extractMediaInfo(m, mediaInfo)
 					m.ProcessingState = StatePending
 				})
+				validMovieIDs = append(validMovieIDs, id)
 			}
-			s.emitState() // Emit state after each file is processed
 		}(movieID)
 	}
 
 	wg.Wait()
+
+	// Emit final state with only video files
+	s.emitState()
+
+	log.Printf("Added %d video files out of %d total files", len(validMovieIDs), len(expandedPaths))
 	return nil
+}
+
+// Combined function to check if file is video AND get media info in one ffprobe call
+func (s *SpoilerService) getVideoMediaInfo(filePath string) (MediaInfo, bool, error) {
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		"-show_streams",
+		filePath,
+	)
+
+	output, err := cmd.Output()
+	if err != nil {
+		return MediaInfo{}, false, nil // Not a video file or ffprobe failed
+	}
+
+	var result struct {
+		Format struct {
+			Duration string            `json:"duration"`
+			Size     string            `json:"size"`
+			BitRate  string            `json:"bit_rate"`
+			Tags     map[string]string `json:"tags"`
+		} `json:"format"`
+		Streams []struct {
+			CodecType string            `json:"codec_type"`
+			CodecName string            `json:"codec_name"`
+			Width     int               `json:"width"`
+			Height    int               `json:"height"`
+			Duration  string            `json:"duration"`
+			BitRate   string            `json:"bit_rate"`
+			Tags      map[string]string `json:"tags"`
+		} `json:"streams"`
+	}
+
+	if err := json.Unmarshal(output, &result); err != nil {
+		return MediaInfo{}, false, fmt.Errorf("failed to parse ffprobe output: %v", err)
+	}
+
+	// Check if it has video streams
+	hasVideo := false
+	for _, stream := range result.Streams {
+		if stream.CodecType == "video" {
+			hasVideo = true
+			break
+		}
+	}
+
+	if !hasVideo {
+		return MediaInfo{}, false, nil
+	}
+
+	// Build MediaInfo
+	mediaInfo := MediaInfo{
+		General: make(map[string]string),
+		Video:   make(map[string]string),
+		Audio:   make(map[string]string),
+	}
+
+	// General info
+	mediaInfo.General["duration"] = result.Format.Duration
+	mediaInfo.General["size"] = result.Format.Size
+	mediaInfo.General["bit_rate"] = result.Format.BitRate
+
+	// Process streams
+	for _, stream := range result.Streams {
+		switch stream.CodecType {
+		case "video":
+			mediaInfo.Video["codec_name"] = stream.CodecName
+			if stream.Width > 0 {
+				mediaInfo.Video["width"] = strconv.Itoa(stream.Width)
+			}
+			if stream.Height > 0 {
+				mediaInfo.Video["height"] = strconv.Itoa(stream.Height)
+			}
+			if stream.Duration != "" {
+				mediaInfo.Video["duration"] = stream.Duration
+			}
+			if stream.BitRate != "" {
+				mediaInfo.Video["bit_rate"] = stream.BitRate
+			}
+			if stream.BitRate == "" && stream.Tags != nil {
+				if br, ok := stream.Tags["BPS"]; ok {
+					mediaInfo.Video["bit_rate"] = br
+				}
+			}
+		case "audio":
+			mediaInfo.Audio["codec_name"] = stream.CodecName
+			if stream.Duration != "" {
+				mediaInfo.Audio["duration"] = stream.Duration
+			}
+			if stream.BitRate != "" {
+				mediaInfo.Audio["bit_rate"] = stream.BitRate
+			}
+			if stream.BitRate == "" && stream.Tags != nil {
+				if br, ok := stream.Tags["BPS"]; ok {
+					mediaInfo.Audio["bit_rate"] = br
+				}
+			}
+		}
+	}
+
+	return mediaInfo, true, nil
 }
 
 func (s *SpoilerService) RemoveMovie(id string) {
@@ -900,23 +1024,6 @@ func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, er
 	return mediaInfo, nil
 }
 
-func (s *SpoilerService) isVideoFile(filePath string) (bool, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=codec_type",
-		"-of", "csv=p=0",
-		filePath,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return false, nil // Not a video file or ffprobe failed
-	}
-
-	return strings.TrimSpace(string(output)) == "video", nil
-}
-
 func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) {
 	var files []string
 
@@ -933,11 +1040,7 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 				}
 
 				if !d.IsDir() {
-					// Check if file is a video using ffprobe
-					isVideo, err := s.isVideoFile(filePath)
-					if err == nil && isVideo {
-						files = append(files, filePath)
-					}
+					files = append(files, filePath)
 				}
 				return nil
 			})
@@ -945,11 +1048,7 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 				return nil, err
 			}
 		} else {
-			// Check if file is a video using ffprobe
-			isVideo, err := s.isVideoFile(path)
-			if err == nil && isVideo {
-				files = append(files, path)
-			}
+			files = append(files, path)
 		}
 	}
 
