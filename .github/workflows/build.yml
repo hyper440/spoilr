@@ -230,10 +230,20 @@ jobs:
           # Generate deb package
           wails3 tool package -name spoiler_list_generator -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
 
-          # Generate AppImage
-          wails3 package
-          mv bin/spoiler_list_generator-x86_64.AppImage "release/spoiler_list_generator_amd64.AppImage"
-          rm -f bin/spoiler_list_generator-x86_64.AppImage
+          # Generate AppImage (optional - skip on failure)
+          echo "Attempting to generate AppImage..."
+          if wails3 package; then
+            echo "AppImage generation successful"
+            if [ -f "bin/spoiler_list_generator-x86_64.AppImage" ]; then
+              mv bin/spoiler_list_generator-x86_64.AppImage "release/spoiler_list_generator_amd64.AppImage"
+              rm -f bin/spoiler_list_generator-x86_64.AppImage
+              echo "AppImage moved to release directory"
+            else
+              echo "AppImage file not found after generation"
+            fi
+          else
+            echo "AppImage generation failed - skipping AppImage creation"
+          fi
 
           # Rename .deb file if needed
           if [ -f "release/spoiler_list_generator.deb" ]; then
