@@ -20,7 +20,7 @@ export default function Header({ template, onTemplateChange, onResetTemplate, se
 
   return (
     <div className="wails-drag flex items-center justify-between mb-6">
-      <a data-wml-openURL="https://github.com/hyper440/spoilr" className="cursor-pointer">
+      <a data-wml-openurl="https://github.com/hyper440/spoilr" className="cursor-pointer">
         <AnimatedText>{t("app.title")}</AnimatedText>
       </a>
       <div className="wails-no-drag flex items-center gap-10">
