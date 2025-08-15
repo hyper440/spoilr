@@ -16,9 +16,9 @@ export default function Header({ template, onTemplateChange, onResetTemplate, se
   const { t } = useTranslation();
 
   return (
-    <div className="wails-no-drag flex items-center justify-between mb-6">
+    <div className="wails-drag flex items-center justify-between mb-6">
       <AnimatedText>{t("app.title")}</AnimatedText>
-      <div className="flex items-center gap-4">
+      <div className="wails-no-drag flex items-center gap-4">
         <TemplateEditor template={template} onTemplateChange={onTemplateChange} onResetToDefault={onResetTemplate} />
         <SettingsPopover settings={settings} onUpdateSettings={onUpdateSettings} />
       </div>
