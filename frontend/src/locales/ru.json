@@ -12,7 +12,7 @@
     "templateEditor": {
         "title": "Редактор шаблонов",
         "resetToDefault": "Сбросить по умолчанию",
-        "saveTemplate": "Сохранить шаблон",
+        "saveTemplate": "Сохранить",
         "placeholder": "Введите ваш шаблон здесь...",
         "availableParameters": "Доступные параметры:",
         "parameters": {

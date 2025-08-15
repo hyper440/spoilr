@@ -12,7 +12,7 @@
     "templateEditor": {
         "title": "Template Editor",
         "resetToDefault": "Reset to Default",
-        "saveTemplate": "Save Template",
+        "saveTemplate": "Save",
         "placeholder": "Enter your template here...",
         "availableParameters": "Available parameters:",
         "parameters": {
