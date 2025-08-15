@@ -14,10 +14,17 @@ A desktop app for creating formatted movie/video spoiler posts with automatic sc
 - **Custom Templates** - Customize output format with variable placeholders
 - **Concurrent Processing** - Parallel screenshot generation and uploads
 
+## Supported Platforms
+
+- Windows 10/11 AMD64/ARM64
+- macOS 10.15+ AMD64 (Can deploy to macOS 10.13+)
+- macOS 11.0+ ARM64
+- Ubuntu 24.04 AMD64/ARM64 (other Linux may work too!)
+
 ## Requirements
 
 - FFmpeg (ffmpeg, ffprobe)
-- MTN (optional, for thumbnails)
+- [MTN](https://gitlab.com/movie_thumbnailer/mtn) (optional, for thumbnails)
 - FastPic cookie (optional, for uploads to account)
 
 ## Usage
