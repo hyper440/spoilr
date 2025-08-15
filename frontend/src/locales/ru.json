@@ -62,8 +62,7 @@
             "fileName": "Имя файла",
             "size": "Размер",
             "duration": "Длительность",
-            "resolution": "Разрешение",
-            "screenshots": "Скриншоты"
+            "resolution": "Разрешение"
         },
         "status": {
             "pending": "Ожидание",
@@ -74,10 +73,6 @@
             "uploadingScreenshots": "Загрузка скриншотов",
             "completed": "Завершено",
             "error": "Ошибка"
-        },
-        "screenshots": {
-            "shots": "скринов",
-            "noShots": "Нет скринов"
         }
     },
     "toast": {

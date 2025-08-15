@@ -62,8 +62,7 @@
             "fileName": "File Name",
             "size": "Size",
             "duration": "Duration",
-            "resolution": "Resolution",
-            "screenshots": "Screenshots"
+            "resolution": "Resolution"
         },
         "status": {
             "pending": "Pending",
@@ -74,10 +73,6 @@
             "uploadingScreenshots": "Uploading Screenshots",
             "completed": "Complete",
             "error": "Error"
-        },
-        "screenshots": {
-            "shots": "shots",
-            "noShots": "No shots"
         }
     },
     "toast": {

@@ -23,6 +23,7 @@ type Movie struct {
 	Params            map[string]string `json:"params"`
 	ProcessingState   string            `json:"processingState"`           // State constants defined below
 	ProcessingError   string            `json:"processingError,omitempty"` // Error details if processing fails
+	Errors            []string          `json:"errors,omitempty"`          // Individual errors that occurred during processing
 }
 
 // Processing state constants

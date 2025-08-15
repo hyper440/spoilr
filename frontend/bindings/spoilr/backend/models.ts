@@ -135,6 +135,11 @@ export class Movie {
      */
     "processingError"?: string;
 
+    /**
+     * Individual errors that occurred during processing
+     */
+    "errors"?: string[];
+
     /** Creates a new Movie instance. */
     constructor($$source: Partial<Movie> = {}) {
         if (!("id" in $$source)) {
@@ -208,6 +213,7 @@ export class Movie {
         const $$createField13_0 = $$createType2;
         const $$createField14_0 = $$createType2;
         const $$createField18_0 = $$createType3;
+        const $$createField21_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
@@ -217,6 +223,9 @@ export class Movie {
         }
         if ("params" in $$parsedSource) {
             $$parsedSource["params"] = $$createField18_0($$parsedSource["params"]);
+        }
+        if ("errors" in $$parsedSource) {
+            $$parsedSource["errors"] = $$createField21_0($$parsedSource["errors"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }

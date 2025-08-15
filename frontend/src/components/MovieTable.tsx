@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Trash2, Copy, FileVideo2Icon, AlertCircle } from "lucide-react";
+import { Trash2, Copy, FileVideo2Icon, AlertCircle, AlertTriangle } from "lucide-react";
 import { SpoilerService, Movie } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
 
@@ -65,13 +65,60 @@ export default function MovieTable({
     }
   };
 
-  const getProcessingBadge = (state: string, processingError?: string) => {
+  const getProcessingBadge = (state: string, processingError?: string, errors?: string[]) => {
+    const hasWarnings = errors && errors.length > 0;
+
+    const renderErrorIcon = () => {
+      if (!processingError && !hasWarnings) return null;
+
+      const iconClass = "w-3 h-3 cursor-pointer ml-1";
+      const Icon = state === "error" ? AlertCircle : AlertTriangle;
+      const iconColor = state === "error" ? "text-red-400" : "text-yellow-400";
+
+      const tooltipContent = (
+        <div className="max-w-xs">
+          {processingError && (
+            <div className="mb-2">
+              <div className="font-semibold text-red-400">Processing Error:</div>
+              <div>{processingError}</div>
+            </div>
+          )}
+          {hasWarnings && (
+            <div>
+              <div className="font-semibold text-yellow-400">
+                {errors.length} Warning{errors.length > 1 ? "s" : ""}:
+              </div>
+              <ul className="list-disc list-inside space-y-1 mt-1">
+                {errors.map((error, index) => (
+                  <li key={index} className="text-xs">
+                    {error}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      );
+
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Icon className={`${iconClass} ${iconColor}`} />
+          </TooltipTrigger>
+          <TooltipContent>{tooltipContent}</TooltipContent>
+        </Tooltip>
+      );
+    };
+
     switch (state) {
       case "pending":
         return (
-          <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">
-            {t("movieTable.status.pending")}
-          </Badge>
+          <div className="flex items-center">
+            <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">
+              {t("movieTable.status.pending")}
+            </Badge>
+            {renderErrorIcon()}
+          </div>
         );
       case "analyzing_media":
         return (
@@ -105,28 +152,20 @@ export default function MovieTable({
         );
       case "completed":
         return (
-          <Badge variant="outline" className="border-green-400/50 text-green-400">
-            {t("movieTable.status.completed")}
-          </Badge>
+          <div className="flex items-center">
+            <Badge variant="outline" className="border-green-400/50 text-green-400">
+              {t("movieTable.status.completed")}
+            </Badge>
+            {renderErrorIcon()}
+          </div>
         );
       case "error":
         return (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center">
             <Badge variant="outline" className="border-red-400/50 text-red-400">
               {t("movieTable.status.error")}
             </Badge>
-            {processingError && (
-              <div className="text-xs text-red-400">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertCircle className="w-3 h-3 cursor-pointer" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{processingError}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            )}
+            {renderErrorIcon()}
           </div>
         );
       default:
@@ -190,7 +229,6 @@ export default function MovieTable({
                 <TableHead className="text-slate-300">{t("movieTable.headers.size")}</TableHead>
                 <TableHead className="text-slate-300">{t("movieTable.headers.duration")}</TableHead>
                 <TableHead className="text-slate-300">{t("movieTable.headers.resolution")}</TableHead>
-                <TableHead className="text-slate-300">{t("movieTable.headers.screenshots")}</TableHead>
                 <TableHead className="text-slate-300">Status</TableHead>
                 <TableHead className="text-slate-300 w-24"></TableHead>
               </TableRow>
@@ -238,18 +276,7 @@ export default function MovieTable({
                   <TableCell className="text-slate-300">
                     {movie.width}x{movie.height}
                   </TableCell>
-                  <TableCell>
-                    {movie.screenshotUrls && movie.screenshotUrls.length > 0 ? (
-                      <Badge variant="outline" className="border-green-400/50 text-green-400">
-                        {movie.screenshotUrls.length} {t("movieTable.screenshots.shots")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-slate-400/50 text-slate-400">
-                        {t("movieTable.screenshots.noShots")}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>{getProcessingBadge(movie.processingState, movie.processingError)}</TableCell>
+                  <TableCell>{getProcessingBadge(movie.processingState, movie.processingError, movie.errors)}</TableCell>
                   <TableCell>
                     <div className="flex gap-1">
                       {movie.processingState === "completed" && (

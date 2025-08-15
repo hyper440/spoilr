@@ -524,14 +524,24 @@ func (s *SpoilerService) StartProcessing() error {
 	return nil
 }
 
+func (s *SpoilerService) addMovieError(id string, errorMsg string) {
+	s.updateMovieByID(id, func(m *Movie) {
+		if m.Errors == nil {
+			m.Errors = make([]string, 0)
+		}
+		m.Errors = append(m.Errors, errorMsg)
+	})
+}
+
 func (s *SpoilerService) ResetMovieStatuses() {
 	for i := range s.movies {
 		// Reset processing state to pending for all movies that have been analyzed
 		if s.movies[i].ProcessingState != StateAnalyzingMedia {
 			s.movies[i].ProcessingState = StatePending
 		}
-		// Clear any processing errors
+		// Clear any processing errors and individual errors
 		s.movies[i].ProcessingError = ""
+		s.movies[i].Errors = make([]string, 0) // Clear individual errors
 
 		// Optionally clear processing results (uncomment if you want to clear URLs too)
 		s.movies[i].ThumbnailURL = ""
@@ -622,6 +632,11 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 }
 
 func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *FastpicService) {
+	// Clear any previous errors
+	s.updateMovieByID(movie.ID, func(m *Movie) {
+		m.Errors = make([]string, 0)
+	})
+
 	// Update status to waiting for screenshot slot
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.ProcessingState = StateWaitingForScreenshotSlot
@@ -688,6 +703,18 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 		return
 	}
 
+	// Determine final state based on whether we have errors
+	movie, exists := s.getMovieByID(movie.ID)
+	if !exists {
+		return
+	}
+
+	finalState := StateCompleted
+	if len(movie.Errors) > 0 {
+		// If we have individual errors but still got some results, mark as completed with warnings
+		log.Printf("Movie %s completed with %d warnings/errors", movie.FileName, len(movie.Errors))
+	}
+
 	// Update movie with results
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.ThumbnailURL = thumbnailURL
@@ -695,11 +722,15 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 		m.ScreenshotURLs = screenshotURLs
 		m.ScreenshotBigURLs = screenshotBigURLs
 		m.ScreenshotAlbum = albumURL
-		m.ProcessingState = StateCompleted
+		m.ProcessingState = finalState
 	})
 	s.emitState()
 
-	log.Printf("Successfully processed movie: %s", movie.FileName)
+	if len(movie.Errors) == 0 {
+		log.Printf("Successfully processed movie: %s", movie.FileName)
+	} else {
+		log.Printf("Processed movie with warnings: %s (%d issues)", movie.FileName, len(movie.Errors))
+	}
 }
 
 // Generate thumbnail and screenshots with proper concurrency control
@@ -711,7 +742,6 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	var thumbnailPath string
 	var screenshotPaths []string
 	var screenshotErrors []error
-	var thumbnailErr error
 
 	// Generate thumbnail (if needed)
 	if strings.Contains(s.template, "%THUMBNAIL%") || strings.Contains(s.template, "%THUMBNAIL_BIG%") {
@@ -737,10 +767,15 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 
 				path, err := s.generateMovieThumbnail(movie.FilePath, tempDir)
 				thumbnailPath = path
-				thumbnailErr = err
+
+				// Add error to movie's error list if thumbnail generation failed
+				if err != nil {
+					s.addMovieError(movie.ID, fmt.Sprintf("Thumbnail generation failed: %v", err))
+					log.Printf("Failed to generate thumbnail for %s: %v", movie.FileName, err)
+				}
 
 			case <-s.cancelCtx.Done():
-				thumbnailErr = s.cancelCtx.Err()
+				return
 			}
 		}()
 	}
@@ -779,6 +814,10 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 					err := s.generateScreenshot(movie.FilePath, outputPath, timestamp)
 					if err == nil {
 						screenshotPaths[index] = outputPath
+					} else {
+						// Add error to movie's error list
+						s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d generation failed: %v", index+1, err))
+						log.Printf("Failed to generate screenshot %d for %s: %v", index+1, movie.FileName, err)
 					}
 					screenshotErrors[index] = err
 
@@ -796,21 +835,15 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 		return "", nil, s.cancelCtx.Err()
 	}
 
-	// Handle thumbnail error
-	if thumbnailErr != nil {
-		log.Printf("Failed to generate thumbnail for %s: %v", movie.FileName, thumbnailErr)
-	}
-
 	// Filter out failed screenshots
 	var validScreenshots []string
-	for i, path := range screenshotPaths {
+	for _, path := range screenshotPaths {
 		if path != "" {
 			validScreenshots = append(validScreenshots, path)
-		} else if i < len(screenshotErrors) && screenshotErrors[i] != nil {
-			log.Printf("Failed to generate screenshot %d for %s: %v", i+1, movie.FileName, screenshotErrors[i])
 		}
 	}
 
+	// Don't return error if only some screenshots failed - we collect individual errors
 	return thumbnailPath, validScreenshots, nil
 }
 
@@ -851,6 +884,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
 				result, err := fastpicService.uploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
 				if err != nil {
+					s.addMovieError(movie.ID, fmt.Sprintf("Thumbnail upload failed: %v", err))
 					log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
 					return
 				}
@@ -894,6 +928,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
 				result, err := fastpicService.uploadToFastpic(s.cancelCtx, path, fileName)
 				if err != nil {
+					s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d upload failed: %v", index+1, err))
 					log.Printf("Failed to upload screenshot %d for %s: %v", index+1, movie.FileName, err)
 					return
 				}
@@ -928,6 +963,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 		}
 	}
 
+	// Don't return error if only some uploads failed - we collect individual errors
 	return thumbnailURL, thumbnailBigURL, validScreenshotURLs, validScreenshotBigURLs, albumURL, nil
 }
 
@@ -945,23 +981,29 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 	}
 
 	cmd := exec.CommandContext(s.cancelCtx, "mtn",
-		"-b", "2", // border width
-		"-w", "1200", // width
-		"-c", "4", // columns
-		"-r", "4", // rows
-		"-g", "0", // gap between thumbnails
-		"-k", "1C1C1C", // background color
-		"-L", "4:2", // font size info:timestamp
-		"-F", "F0FFFF:10", // font color:shadow
-		"-O", tempDir, // output directory
-		"-q",      // quiet
-		videoPath, // input path (no -P flag needed)
+		"-b", "2", // Skip frames if blank percentage is higher than 2 (effectively disables blank frame skipping)
+		"-w", "1200", // Output image width of 1200 pixels
+		"-c", "4", // Create 4 columns of thumbnails
+		"-r", "4", // Create 4 rows of thumbnails (overrides time step)
+		"-g", "0", // No gap between thumbnails
+		"-k", "1C1C1C", // Set background color to dark gray (#1C1C1C)
+		"-L", "4:2", // Place info text at upper left (4), timestamp at lower right (2)
+		"-F", "F0FFFF:10", // Set font color to light cyan (F0FFFF) with size 10
+		"-O", tempDir, // Save output files in the specified temporary directory
+		videoPath, // Input video file path
 	)
 
-	err := cmd.Run()
+	// Capture both stdout and stderr for better error reporting
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if s.cancelCtx.Err() != nil {
 			return "", fmt.Errorf("thumbnail generation cancelled: %v", s.cancelCtx.Err())
+		}
+
+		// Include the actual mtn output in the error message
+		outputStr := strings.TrimSpace(string(output))
+		if outputStr != "" {
+			return "", fmt.Errorf("mtn command failed: %v\nOutput: %s", err, outputStr)
 		}
 		return "", fmt.Errorf("mtn command failed: %v", err)
 	}
@@ -991,9 +1033,14 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 		}
 	}
 
+	// Log output for debugging when no thumbnail is found
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr != "" {
+		log.Printf("MTN output for %s: %s", filepath.Base(videoPath), outputStr)
+	}
+
 	return "", fmt.Errorf("thumbnail file not found after generation - no .jpg files in %s", tempDir)
 }
-
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
 	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
 		"-v", "quiet",
