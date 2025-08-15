@@ -87,10 +87,8 @@ func (s *SpoilerService) GetDefaultTemplate() string {
 File: %FILE_NAME%
 Size: %FILE_SIZE%
 Duration: %DURATION%
-Resolution: %WIDTH%x%HEIGHT%
-Video: %VIDEO_CODEC% @ %VIDEO_BIT_RATE%
-Audio: %AUDIO_CODEC% @ %AUDIO_BIT_RATE%
-Overall Bitrate: %BIT_RATE%
+Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS (%VIDEO_FPS_FRACTIONAL%) / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
+Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 
 %THUMBNAIL%
 
@@ -164,7 +162,23 @@ func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
 		movie.BitRate = formatBitRate(overallBitRate)
 	}
 
-	// Store all parameters
+	// Store formatted video info
+	if rFrameRate, ok := mediaInfo.Video["r_frame_rate"]; ok {
+		movie.Params["%VIDEO_FPS_FRACTIONAL%"] = rFrameRate
+	}
+	if fpsDecimal, ok := mediaInfo.Video["fps_decimal"]; ok {
+		movie.Params["%VIDEO_FPS%"] = fpsDecimal
+	}
+
+	// Store formatted audio info
+	if sampleRate, ok := mediaInfo.Audio["sample_rate"]; ok {
+		movie.Params["%AUDIO_SAMPLE_RATE%"] = formatSampleRate(sampleRate)
+	}
+	if channels, ok := mediaInfo.Audio["channels"]; ok {
+		movie.Params["%AUDIO_CHANNELS%"] = formatChannels(channels)
+	}
+
+	// Store all raw parameters
 	for key, value := range mediaInfo.General {
 		movie.Params[fmt.Sprintf("%%General@%s%%", key)] = value
 	}
@@ -175,6 +189,46 @@ func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
 
 	for key, value := range mediaInfo.Audio {
 		movie.Params[fmt.Sprintf("%%Audio@%s%%", key)] = value
+	}
+}
+
+func formatSampleRate(sampleRateStr string) string {
+	if sampleRateStr == "" {
+		return ""
+	}
+
+	sampleRate, err := strconv.ParseFloat(sampleRateStr, 64)
+	if err != nil {
+		return sampleRateStr
+	}
+
+	if sampleRate >= 1000 {
+		return fmt.Sprintf("%.1f kHz", sampleRate/1000)
+	}
+	return fmt.Sprintf("%.0f Hz", sampleRate)
+}
+
+func formatChannels(channelsStr string) string {
+	if channelsStr == "" {
+		return ""
+	}
+
+	channels, err := strconv.Atoi(channelsStr)
+	if err != nil {
+		return channelsStr
+	}
+
+	switch channels {
+	case 1:
+		return "1 channel (mono)"
+	case 2:
+		return "2 channels (stereo)"
+	case 6:
+		return "6 channels (5.1)"
+	case 8:
+		return "8 channels (7.1)"
+	default:
+		return fmt.Sprintf("%d channels", channels)
 	}
 }
 
@@ -289,13 +343,18 @@ func (s *SpoilerService) getVideoMediaInfo(filePath string) (MediaInfo, bool, er
 			Tags     map[string]string `json:"tags"`
 		} `json:"format"`
 		Streams []struct {
-			CodecType string            `json:"codec_type"`
-			CodecName string            `json:"codec_name"`
-			Width     int               `json:"width"`
-			Height    int               `json:"height"`
-			Duration  string            `json:"duration"`
-			BitRate   string            `json:"bit_rate"`
-			Tags      map[string]string `json:"tags"`
+			CodecType     string            `json:"codec_type"`
+			CodecName     string            `json:"codec_name"`
+			Width         int               `json:"width"`
+			Height        int               `json:"height"`
+			Duration      string            `json:"duration"`
+			BitRate       string            `json:"bit_rate"`
+			RFrameRate    string            `json:"r_frame_rate"`
+			AvgFrameRate  string            `json:"avg_frame_rate"`
+			SampleRate    string            `json:"sample_rate"`
+			Channels      int               `json:"channels"`
+			ChannelLayout string            `json:"channel_layout"`
+			Tags          map[string]string `json:"tags"`
 		} `json:"streams"`
 	}
 
@@ -350,6 +409,19 @@ func (s *SpoilerService) getVideoMediaInfo(filePath string) (MediaInfo, bool, er
 					mediaInfo.Video["bit_rate"] = br
 				}
 			}
+
+			// Extract framerate info
+			if stream.RFrameRate != "" {
+				mediaInfo.Video["r_frame_rate"] = stream.RFrameRate
+				// Convert to decimal
+				if fps := parseFrameRate(stream.RFrameRate); fps > 0 {
+					mediaInfo.Video["fps_decimal"] = fmt.Sprintf("%.3f", fps)
+				}
+			}
+			if stream.AvgFrameRate != "" {
+				mediaInfo.Video["avg_frame_rate"] = stream.AvgFrameRate
+			}
+
 		case "audio":
 			mediaInfo.Audio["codec_name"] = stream.CodecName
 			if stream.Duration != "" {
@@ -363,10 +435,41 @@ func (s *SpoilerService) getVideoMediaInfo(filePath string) (MediaInfo, bool, er
 					mediaInfo.Audio["bit_rate"] = br
 				}
 			}
+
+			// Extract audio-specific info
+			if stream.SampleRate != "" {
+				mediaInfo.Audio["sample_rate"] = stream.SampleRate
+			}
+			if stream.Channels > 0 {
+				mediaInfo.Audio["channels"] = strconv.Itoa(stream.Channels)
+			}
+			if stream.ChannelLayout != "" {
+				mediaInfo.Audio["channel_layout"] = stream.ChannelLayout
+			}
 		}
 	}
 
 	return mediaInfo, true, nil
+}
+
+func parseFrameRate(frameRate string) float64 {
+	if frameRate == "" || frameRate == "0/0" {
+		return 0
+	}
+
+	parts := strings.Split(frameRate, "/")
+	if len(parts) != 2 {
+		return 0
+	}
+
+	numerator, err1 := strconv.ParseFloat(parts[0], 64)
+	denominator, err2 := strconv.ParseFloat(parts[1], 64)
+
+	if err1 != nil || err2 != nil || denominator == 0 {
+		return 0
+	}
+
+	return numerator / denominator
 }
 
 func (s *SpoilerService) RemoveMovie(id string) {
