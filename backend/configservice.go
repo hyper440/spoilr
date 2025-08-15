@@ -84,7 +84,7 @@ func initSpoilerConfigPath() {
 	// First try portable config in executable directory
 	wdDir, err := os.Getwd()
 	if err == nil {
-		portableConfigPath := filepath.Join(wdDir, "spoilerlist.config")
+		portableConfigPath := filepath.Join(wdDir, "spoilr.config")
 
 		// If config exists in executable directory, use it
 		if _, err := os.Stat(portableConfigPath); err == nil {
@@ -94,8 +94,8 @@ func initSpoilerConfigPath() {
 	}
 
 	// Fall back to default location
-	userConfigDir := filepath.Join(getUserConfigDir(), "/spoilerlist")
-	ConfigPath = filepath.Join(userConfigDir, "spoilerlist.config")
+	userConfigDir := filepath.Join(getUserConfigDir(), "/spoilr")
+	ConfigPath = filepath.Join(userConfigDir, "spoilr.config")
 }
 
 func getUserConfigDir() string {
