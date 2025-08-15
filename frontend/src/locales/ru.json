@@ -1,0 +1,101 @@
+{
+    "app": {
+        "title": "Spoiler List Generator"
+    },
+    "dropzone": {
+        "title": "Перетащите видеофайлы сюда"
+    },
+    "header": {
+        "editTemplate": "Редактировать шаблон",
+        "settings": "Настройки"
+    },
+    "templateEditor": {
+        "title": "Редактор шаблонов",
+        "resetToDefault": "Сбросить по умолчанию",
+        "saveTemplate": "Сохранить шаблон",
+        "placeholder": "Введите ваш шаблон здесь...",
+        "availableParameters": "Доступные параметры:",
+        "parameters": {
+            "fileName": "Исходное имя видеофайла",
+            "fileSize": "Размер файла в читаемом формате (например, 1.2 Gb)",
+            "duration": "Продолжительность видео в формате ЧЧ:ММ:СС или ММ:СС",
+            "width": "Ширина видео в пикселях",
+            "height": "Высота видео в пикселях",
+            "bitRate": "Общий битрейт файла",
+            "videoBitRate": "Битрейт видеопотока",
+            "audioBitRate": "Битрейт аудиопотока",
+            "videoCodec": "Название видеокодека (например, h264, hevc)",
+            "audioCodec": "Название аудиокодека (например, aac, mp3)",
+            "videoFps": "Частота кадров видео в десятичном формате (например, 59.940)",
+            "videoFpsFractional": "Частота кадров видео в дробном формате (например, 60000/1001)",
+            "audioSampleRate": "Частота дискретизации аудио (например, 44.1 kHz)",
+            "audioChannels": "Количество аудиоканалов (например, 2 channels)",
+            "screenshots": "Скриншоты (миниатюры), разделенные переносами строк",
+            "screenshotsSpaced": "Скриншоты (миниатюры), разделенные пробелами",
+            "screenshotsBig": "Скриншоты (полный размер), разделенные переносами строк",
+            "screenshotsBigSpaced": "Скриншоты (полный размер), разделенные пробелами",
+            "thumbnail": "Сетка миниатюр фильма (миниатюра), созданная с помощью mtn",
+            "thumbnailBig": "Сетка миниатюр фильма (полный размер), созданная с помощью mtn"
+        }
+    },
+    "settings": {
+        "title": "Настройки приложения",
+        "fastpicSid": "Fastpic SID",
+        "fastpicSidPlaceholder": "значение cookie fp_sid",
+        "screenshots": "Скриншоты",
+        "quality": "Качество",
+        "parallelGeneration": "Параллельная генерация",
+        "parallelUploads": "Параллельная загрузка"
+    },
+    "movieTable": {
+        "title": "Файлы",
+        "startProcessing": "Начать обработку",
+        "cancel": "Отменить",
+        "clearAll": "Очистить все",
+        "reset": "Сбросить",
+        "copyAll": "Копировать все",
+        "resetTooltip": "Сбросить статусы в Ожидание",
+        "spoilerPreview": "Предпросмотр спойлера",
+        "loading": "Загрузка...",
+        "headers": {
+            "index": "#",
+            "fileName": "Имя файла",
+            "size": "Размер",
+            "duration": "Длительность",
+            "resolution": "Разрешение",
+            "screenshots": "Скриншоты"
+        },
+        "status": {
+            "pending": "Ожидание",
+            "analyzingMedia": "Анализ медиа",
+            "waitingForScreenshotSlot": "Ожидание слота для скриншотов",
+            "generatingScreenshots": "Генерация скриншотов",
+            "waitingForUploadSlot": "Ожидание слота для загрузки",
+            "uploadingScreenshots": "Загрузка скриншотов",
+            "completed": "Завершено",
+            "error": "Ошибка"
+        },
+        "screenshots": {
+            "shots": "скринов",
+            "noShots": "Нет скринов"
+        }
+    },
+    "toast": {
+        "mtnMissing": "MTN отсутствует",
+        "mtnMissingDescription": "Movie Thumbnailer (MTN) не установлен. Генерация миниатюр будет пропущена."
+    },
+    "errors": {
+        "loadInitialData": "Не удалось загрузить начальные данные:",
+        "startProcessing": "Не удалось начать обработку:",
+        "cancelProcessing": "Не удалось отменить обработку:",
+        "clearMovies": "Не удалось очистить фильмы:",
+        "removeMovie": "Не удалось удалить фильм:",
+        "saveTemplate": "Не удалось сохранить шаблон:",
+        "resetTemplate": "Не удалось сбросить шаблон по умолчанию:",
+        "updateSettings": "Не удалось обновить настройки:",
+        "copyResult": "Не удалось скопировать результат:",
+        "copyResults": "Не удалось скопировать результаты:",
+        "reorderMovies": "Не удалось изменить порядок фильмов:",
+        "generateSpoiler": "Не удалось сгенерировать предпросмотр спойлера:"
+    }
+}

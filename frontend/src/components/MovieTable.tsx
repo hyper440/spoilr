@@ -8,6 +8,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Trash2, Copy, FileVideo2Icon, AlertCircle } from "lucide-react";
 import { SpoilerService, Movie } from "@bindings/slg/backend";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface MovieTableProps {
   movies: Movie[];
@@ -34,6 +35,7 @@ export default function MovieTable({
   onCopyAllResults,
   onReorderMovies,
 }: MovieTableProps) {
+  const { t } = useTranslation();
   const [localSpoilers, setLocalSpoilers] = useState<Record<string, string>>({});
 
   // Sort movies by filename and trigger reorder when movies change
@@ -59,7 +61,7 @@ export default function MovieTable({
       const spoiler = await SpoilerService.GenerateResultForMovie(movieId);
       setLocalSpoilers((prev) => ({ ...prev, [movieId]: spoiler }));
     } catch (error) {
-      console.error("Failed to generate spoiler preview:", error);
+      console.error(t("errors.generateSpoiler"), error);
     }
   };
 
@@ -68,50 +70,50 @@ export default function MovieTable({
       case "pending":
         return (
           <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">
-            Pending
+            {t("movieTable.status.pending")}
           </Badge>
         );
       case "analyzing_media":
         return (
           <Badge variant="outline" className="border-blue-400/50 text-blue-400">
-            Analyzing Media
+            {t("movieTable.status.analyzingMedia")}
           </Badge>
         );
       case "waiting_for_screenshot_slot":
         return (
           <Badge variant="outline" className="border-orange-400/50 text-orange-400">
-            Waiting for Screenshot Slot
+            {t("movieTable.status.waitingForScreenshotSlot")}
           </Badge>
         );
       case "generating_screenshots":
         return (
           <Badge variant="outline" className="border-purple-400/50 text-purple-400">
-            Generating Screenshots
+            {t("movieTable.status.generatingScreenshots")}
           </Badge>
         );
       case "waiting_for_upload_slot":
         return (
           <Badge variant="outline" className="border-amber-400/50 text-amber-400">
-            Waiting for Upload Slot
+            {t("movieTable.status.waitingForUploadSlot")}
           </Badge>
         );
       case "uploading_screenshots":
         return (
           <Badge variant="outline" className="border-cyan-400/50 text-cyan-400">
-            Uploading Screenshots
+            {t("movieTable.status.uploadingScreenshots")}
           </Badge>
         );
       case "completed":
         return (
           <Badge variant="outline" className="border-green-400/50 text-green-400">
-            Complete
+            {t("movieTable.status.completed")}
           </Badge>
         );
       case "error":
         return (
           <div className="flex items-center gap-1">
             <Badge variant="outline" className="border-red-400/50 text-red-400">
-              Error
+              {t("movieTable.status.error")}
             </Badge>
             {processingError && (
               <div className="text-xs text-red-400">
@@ -140,21 +142,21 @@ export default function MovieTable({
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2">
             <FileVideo2Icon className="w-5 h-5" />
-            Files ({movies.length})
+            {t("movieTable.title")} ({movies.length})
           </CardTitle>
           <div className="flex items-center gap-2">
             {pendingCount > 0 && !processing && (
               <Button onClick={onStartProcessing} className="bg-gradient-to-r from-green-600 to-emerald-600">
-                Start Processing ({pendingCount})
+                {t("movieTable.startProcessing")} ({pendingCount})
               </Button>
             )}
             {processing && (
               <Button onClick={onCancelProcessing} variant="outline" className="border-red-400/50 text-red-400 hover:bg-red-500/20">
-                Cancel
+                {t("movieTable.cancel")}
               </Button>
             )}
             <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
-              Clear All
+              {t("movieTable.clearAll")}
             </Button>
             {movies.length !== pendingCount && !processing && (
               <Tooltip>
@@ -164,15 +166,15 @@ export default function MovieTable({
                     variant="outline"
                     className="border-yellow-400/50 text-yellow-400 hover:bg-yellow-500/20"
                   >
-                    Reset
+                    {t("movieTable.reset")}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Reset statuses to Pending</TooltipContent>
+                <TooltipContent>{t("movieTable.resetTooltip")}</TooltipContent>
               </Tooltip>
             )}
             {completedMovies.length > 0 && (
               <Button onClick={onCopyAllResults} className="bg-gradient-to-r from-green-600 to-emerald-600">
-                Copy All ({completedMovies.length})
+                {t("movieTable.copyAll")} ({completedMovies.length})
               </Button>
             )}
           </div>
@@ -183,12 +185,12 @@ export default function MovieTable({
           <Table>
             <TableHeader>
               <TableRow className="border-white/5">
-                <TableHead className="text-slate-300">#</TableHead>
-                <TableHead className="text-slate-300">File Name</TableHead>
-                <TableHead className="text-slate-300">Size</TableHead>
-                <TableHead className="text-slate-300">Duration</TableHead>
-                <TableHead className="text-slate-300">Resolution</TableHead>
-                <TableHead className="text-slate-300">Screenshots</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.index")}</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.fileName")}</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.size")}</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.duration")}</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.resolution")}</TableHead>
+                <TableHead className="text-slate-300">{t("movieTable.headers.screenshots")}</TableHead>
                 <TableHead className="text-slate-300">Status</TableHead>
                 <TableHead className="text-slate-300 w-24"></TableHead>
               </TableRow>
@@ -211,9 +213,9 @@ export default function MovieTable({
                           </HoverCardTrigger>
                           <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
                             <div className="space-y-2">
-                              <h4 className="text-sm font-semibold text-white">Spoiler Preview</h4>
+                              <h4 className="text-sm font-semibold text-white">{t("movieTable.spoilerPreview")}</h4>
                               <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
-                                {localSpoilers[movie.id] || "Loading..."}
+                                {localSpoilers[movie.id] || t("movieTable.loading")}
                               </pre>
                             </div>
                           </HoverCardContent>
@@ -239,11 +241,11 @@ export default function MovieTable({
                   <TableCell>
                     {movie.screenshotUrls && movie.screenshotUrls.length > 0 ? (
                       <Badge variant="outline" className="border-green-400/50 text-green-400">
-                        {movie.screenshotUrls.length} shots
+                        {movie.screenshotUrls.length} {t("movieTable.screenshots.shots")}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="border-slate-400/50 text-slate-400">
-                        No shots
+                        {t("movieTable.screenshots.noShots")}
                       </Badge>
                     )}
                   </TableCell>

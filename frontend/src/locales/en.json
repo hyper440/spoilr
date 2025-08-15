@@ -1,0 +1,101 @@
+{
+    "app": {
+        "title": "Spoiler List Generator"
+    },
+    "dropzone": {
+        "title": "Drop Video Files Anywhere"
+    },
+    "header": {
+        "editTemplate": "Edit Template",
+        "settings": "Settings"
+    },
+    "templateEditor": {
+        "title": "Template Editor",
+        "resetToDefault": "Reset to Default",
+        "saveTemplate": "Save Template",
+        "placeholder": "Enter your template here...",
+        "availableParameters": "Available parameters:",
+        "parameters": {
+            "fileName": "Original filename of the video file",
+            "fileSize": "File size in human-readable format (e.g., 1.2 GB)",
+            "duration": "Video duration in HH:MM:SS or MM:SS format",
+            "width": "Video width in pixels",
+            "height": "Video height in pixels",
+            "bitRate": "Overall bitrate of the file",
+            "videoBitRate": "Video stream bitrate",
+            "audioBitRate": "Audio stream bitrate",
+            "videoCodec": "Video codec name (e.g., h264, hevc)",
+            "audioCodec": "Audio codec name (e.g., aac, mp3)",
+            "videoFps": "Video framerate in decimal format (e.g., 59.940)",
+            "videoFpsFractional": "Video framerate in fractional format (e.g., 60000/1001)",
+            "audioSampleRate": "Audio sample rate (e.g., 44.1 kHz)",
+            "audioChannels": "Audio channel count (e.g., 2 channels)",
+            "screenshots": "Screenshots (small preview) separated by newlines",
+            "screenshotsSpaced": "Screenshots (small preview) separated by spaces",
+            "screenshotsBig": "Screenshots (fullsize) separated by newlines",
+            "screenshotsBigSpaced": "Screenshots (fullsize) separated by spaces",
+            "thumbnail": "Movie thumbnail grid (small preview) generated with mtn",
+            "thumbnailBig": "Movie thumbnail grid (fullsize) generated with mtn"
+        }
+    },
+    "settings": {
+        "title": "Application Settings",
+        "fastpicSid": "Fastpic SID",
+        "fastpicSidPlaceholder": "fp_sid cookie value",
+        "screenshots": "Screenshots",
+        "quality": "Quality",
+        "parallelGeneration": "Parallel Generation",
+        "parallelUploads": "Parallel Uploads"
+    },
+    "movieTable": {
+        "title": "Files",
+        "startProcessing": "Start Processing",
+        "cancel": "Cancel",
+        "clearAll": "Clear All",
+        "reset": "Reset",
+        "copyAll": "Copy All",
+        "resetTooltip": "Reset statuses to Pending",
+        "spoilerPreview": "Spoiler Preview",
+        "loading": "Loading...",
+        "headers": {
+            "index": "#",
+            "fileName": "File Name",
+            "size": "Size",
+            "duration": "Duration",
+            "resolution": "Resolution",
+            "screenshots": "Screenshots"
+        },
+        "status": {
+            "pending": "Pending",
+            "analyzingMedia": "Analyzing Media",
+            "waitingForScreenshotSlot": "Waiting for Screenshot Slot",
+            "generatingScreenshots": "Generating Screenshots",
+            "waitingForUploadSlot": "Waiting for Upload Slot",
+            "uploadingScreenshots": "Uploading Screenshots",
+            "completed": "Complete",
+            "error": "Error"
+        },
+        "screenshots": {
+            "shots": "shots",
+            "noShots": "No shots"
+        }
+    },
+    "toast": {
+        "mtnMissing": "MTN Missing",
+        "mtnMissingDescription": "Movie Thumbnailer (MTN) is not installed. Thumbnail generation will be skipped."
+    },
+    "errors": {
+        "loadInitialData": "Failed to load initial data:",
+        "startProcessing": "Failed to start processing:",
+        "cancelProcessing": "Failed to cancel processing:",
+        "clearMovies": "Failed to clear movies:",
+        "removeMovie": "Failed to remove movie:",
+        "saveTemplate": "Failed to save template:",
+        "resetTemplate": "Failed to reset template to default:",
+        "updateSettings": "Failed to update settings:",
+        "copyResult": "Failed to copy result:",
+        "copyResults": "Failed to copy results:",
+        "reorderMovies": "Failed to reorder movies:",
+        "generateSpoiler": "Failed to generate spoiler preview:"
+    }
+}
