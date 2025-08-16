@@ -609,7 +609,8 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	defer os.RemoveAll(tempDir)
 
 	// Get upload ID once for all movies
-	fastpicService := NewFastpicService(s.settings.FastpicSID)
+	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
+	fastpicService := NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
 	err = fastpicService.getFastpicUploadID(s.cancelCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get fastpic upload ID: %v", err)

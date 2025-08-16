@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,12 +20,16 @@ import (
 )
 
 type FastpicService struct {
-	sid      string
-	uploadID string
+	sid                string
+	uploadID           string
+	imageMiniatureSize int
 }
 
-func NewFastpicService(sid string) *FastpicService {
-	return &FastpicService{sid: sid}
+func NewFastpicService(sid string, imageMiniatureSize int) *FastpicService {
+	return &FastpicService{
+		sid:                sid,
+		imageMiniatureSize: imageMiniatureSize,
+	}
 }
 
 func (f *FastpicService) getFastpicUploadID(ctx context.Context) error {
@@ -126,7 +131,7 @@ func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName
 		"upload_id":                 f.uploadID,
 		"check_thumb":               "size",
 		"thumb_text":                "",
-		"thumb_size":                "350",
+		"thumb_size":                strconv.Itoa(f.imageMiniatureSize),
 		"check_thumb_size_vertical": "false",
 		"check_orig_resize":         "false",
 		"orig_resize":               "1200",

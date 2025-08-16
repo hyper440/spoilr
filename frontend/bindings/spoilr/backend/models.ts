@@ -27,6 +27,7 @@ export class AppSettings {
      * MTN command line arguments
      */
     "mtnArgs": string;
+    "imageMiniatureSize": number;
 
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
@@ -47,6 +48,9 @@ export class AppSettings {
         }
         if (!("mtnArgs" in $$source)) {
             this["mtnArgs"] = "";
+        }
+        if (!("imageMiniatureSize" in $$source)) {
+            this["imageMiniatureSize"] = 0;
         }
 
         Object.assign(this, $$source);

@@ -59,6 +59,7 @@ type AppSettings struct {
 	MaxConcurrentScreenshots int    `json:"maxConcurrentScreenshots"` // Max parallel screenshot generation
 	MaxConcurrentUploads     int    `json:"maxConcurrentUploads"`     // Max parallel uploads
 	MtnArgs                  string `json:"mtnArgs"`                  // MTN command line arguments
+	ImageMiniatureSize       int    `json:"imageMiniatureSize"`
 }
 
 // FastpicUploadResult represents the result of fastpic upload

@@ -46,6 +46,7 @@
         "quality": "Quality",
         "parallelGeneration": "Parallel Generation",
         "parallelUploads": "Parallel Uploads",
+        "imageMiniatureSize": "Image Miniature Size",
         "mtnArgs": "MTN Arguments",
         "mtnArgsPlaceholder": "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
         "mtnArgsDescription": "Command line arguments for MTN (Movie Thumbnailer). Separate arguments with spaces."

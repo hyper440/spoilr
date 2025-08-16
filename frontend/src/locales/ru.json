@@ -46,6 +46,7 @@
         "quality": "Качество",
         "parallelGeneration": "Параллельная генерация",
         "parallelUploads": "Параллельная загрузка",
+        "imageMiniatureSize": "Размер миниатюр изображений",
         "mtnArgs": "Аргументы MTN",
         "mtnArgsPlaceholder": "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
         "mtnArgsDescription": "Аргументы командной строки для MTN (Movie Thumbnailer). Разделяйте аргументы пробелами."

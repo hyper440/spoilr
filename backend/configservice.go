@@ -20,6 +20,7 @@ type SpoilerConfig struct {
 	MaxConcurrentUploads     int    `json:"maxConcurrentUploads" koanf:"max_concurrent_uploads"`
 	Template                 string `json:"template" koanf:"template"`
 	MtnArgs                  string `json:"mtnArgs" koanf:"mtn_args"`
+	ImageMiniatureSize       int    `json:"imageMiniatureSize" koanf:"image_miniature_size"`
 }
 
 var SpoilerAppConfig SpoilerConfig
@@ -33,6 +34,7 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	MaxConcurrentUploads:     2,
 	Template:                 "",
 	MtnArgs:                  "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
+	ImageMiniatureSize:       350,
 }
 
 type ConfigService struct{}
@@ -46,7 +48,7 @@ func (g *ConfigService) GetConfig() SpoilerConfig {
 	if _, err := os.Stat(ConfigPath); os.IsNotExist(err) {
 		fmt.Println("Created a new spoiler settings config")
 		SpoilerAppConfig = DefaultSpoilerConfig
-		saveSpoilerAppConfig() // Save default config if it doesn't exist
+		saveSpoilerAppConfig()
 	}
 
 	file, _ := os.ReadFile(ConfigPath)
@@ -74,6 +76,9 @@ func (g *ConfigService) UpdateConfig(config SpoilerConfig) error {
 	}
 	if config.ScreenshotQuality < 1 || config.ScreenshotQuality > 31 {
 		return fmt.Errorf("screenshot quality must be between 1 and 31")
+	}
+	if config.ImageMiniatureSize < 100 || config.ImageMiniatureSize > 800 {
+		return fmt.Errorf("image miniature size must be between 100 and 800")
 	}
 
 	SpoilerAppConfig = config
@@ -161,6 +166,9 @@ func loadSpoilerAppConfig() SpoilerConfig {
 	}
 	if c.ScreenshotQuality < 1 || c.ScreenshotQuality > 31 {
 		c.ScreenshotQuality = DefaultSpoilerConfig.ScreenshotQuality
+	}
+	if c.ImageMiniatureSize < 100 || c.ImageMiniatureSize > 800 {
+		c.ImageMiniatureSize = DefaultSpoilerConfig.ImageMiniatureSize
 	}
 	if c.Template == "" {
 		c.Template = DefaultSpoilerConfig.Template

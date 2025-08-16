@@ -77,6 +77,9 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 step={1}
               />
             </div>
+
+            <Separator />
+
             {/* Fastpic Settings */}
             <div className="space-y-2">
               <Label htmlFor="fastpicSid" className="text-sm font-medium">
@@ -87,6 +90,18 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 value={settings.fastpicSid}
                 onChange={(e) => onUpdateSettings({ fastpicSid: e.target.value })}
                 placeholder={t("settings.fastpicSidPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t("settings.imageMiniatureSize")}: {settings.imageMiniatureSize}px
+              </Label>
+              <Slider
+                value={[settings.imageMiniatureSize]}
+                onValueChange={([value]) => onUpdateSettings({ imageMiniatureSize: value })}
+                max={800}
+                min={100}
+                step={50}
               />
             </div>
 
