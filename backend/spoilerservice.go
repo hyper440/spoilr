@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"spoilr/backend/img_uploaders"
 	"strconv"
 	"strings"
 	"sync"
@@ -610,8 +611,8 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 
 	// Get upload ID once for all movies
 	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
-	fastpicService := NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
-	err = fastpicService.getFastpicUploadID(s.cancelCtx)
+	fastpicService := img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
+	err = fastpicService.GetFastpicUploadID(s.cancelCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
 	}
@@ -633,7 +634,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	return nil
 }
 
-func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *FastpicService) {
+func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService) {
 	// Clear any previous errors
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.Errors = make([]string, 0)
@@ -850,7 +851,7 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 }
 
 // Upload media with proper concurrency control
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *FastpicService) (string, string, []string, []string, string, error) {
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService) (string, string, []string, []string, string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var uploadStarted bool // Track if any upload has actually started
@@ -884,7 +885,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				mu.Unlock()
 
 				fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
-				result, err := fastpicService.uploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
+				result, err := fastpicService.UploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
 				if err != nil {
 					s.addMovieError(movie.ID, fmt.Sprintf("Thumbnail upload failed: %v", err))
 					log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
@@ -928,7 +929,7 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				mu.Unlock()
 
 				fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
-				result, err := fastpicService.uploadToFastpic(s.cancelCtx, path, fileName)
+				result, err := fastpicService.UploadToFastpic(s.cancelCtx, path, fileName)
 				if err != nil {
 					s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d upload failed: %v", index+1, err))
 					log.Printf("Failed to upload screenshot %d for %s: %v", index+1, movie.FileName, err)
@@ -1083,94 +1084,6 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 	}
 
 	return nil
-}
-
-func (s *SpoilerService) getMediaInfoWithFFProbe(filePath string) (MediaInfo, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "quiet",
-		"-print_format", "json",
-		"-show_format",
-		"-show_streams",
-		filePath,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return MediaInfo{}, fmt.Errorf("ffprobe failed: %v", err)
-	}
-
-	var result struct {
-		Format struct {
-			Duration string            `json:"duration"`
-			Size     string            `json:"size"`
-			BitRate  string            `json:"bit_rate"`
-			Tags     map[string]string `json:"tags"`
-		} `json:"format"`
-		Streams []struct {
-			CodecType string            `json:"codec_type"`
-			CodecName string            `json:"codec_name"`
-			Width     int               `json:"width"`
-			Height    int               `json:"height"`
-			Duration  string            `json:"duration"`
-			BitRate   string            `json:"bit_rate"`
-			Tags      map[string]string `json:"tags"`
-		} `json:"streams"`
-	}
-
-	if err := json.Unmarshal(output, &result); err != nil {
-		return MediaInfo{}, fmt.Errorf("failed to parse ffprobe output: %v", err)
-	}
-
-	mediaInfo := MediaInfo{
-		General: make(map[string]string),
-		Video:   make(map[string]string),
-		Audio:   make(map[string]string),
-	}
-
-	// General info
-	mediaInfo.General["duration"] = result.Format.Duration
-	mediaInfo.General["size"] = result.Format.Size
-	mediaInfo.General["bit_rate"] = result.Format.BitRate
-
-	// Process streams
-	for _, stream := range result.Streams {
-		switch stream.CodecType {
-		case "video":
-			mediaInfo.Video["codec_name"] = stream.CodecName
-			if stream.Width > 0 {
-				mediaInfo.Video["width"] = strconv.Itoa(stream.Width)
-			}
-			if stream.Height > 0 {
-				mediaInfo.Video["height"] = strconv.Itoa(stream.Height)
-			}
-			if stream.Duration != "" {
-				mediaInfo.Video["duration"] = stream.Duration
-			}
-			if stream.BitRate != "" {
-				mediaInfo.Video["bit_rate"] = stream.BitRate
-			}
-			if stream.BitRate == "" && stream.Tags != nil {
-				if br, ok := stream.Tags["BPS"]; ok {
-					mediaInfo.Video["bit_rate"] = br
-				}
-			}
-		case "audio":
-			mediaInfo.Audio["codec_name"] = stream.CodecName
-			if stream.Duration != "" {
-				mediaInfo.Audio["duration"] = stream.Duration
-			}
-			if stream.BitRate != "" {
-				mediaInfo.Audio["bit_rate"] = stream.BitRate
-			}
-			if stream.BitRate == "" && stream.Tags != nil {
-				if br, ok := stream.Tags["BPS"]; ok {
-					mediaInfo.Audio["bit_rate"] = br
-				}
-			}
-		}
-	}
-
-	return mediaInfo, nil
 }
 
 func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) {

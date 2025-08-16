@@ -62,14 +62,6 @@ type AppSettings struct {
 	ImageMiniatureSize       int    `json:"imageMiniatureSize"`
 }
 
-// FastpicUploadResult represents the result of fastpic upload
-type FastpicUploadResult struct {
-	AlbumLink string `json:"albumLink"`
-	Direct    string `json:"direct"`
-	BBThumb   string `json:"bbThumb"`
-	BBBig     string `json:"bbBig"`
-}
-
 // TemplateData represents data for template processing
 type TemplateData struct {
 	Movies   []Movie     `json:"movies"`

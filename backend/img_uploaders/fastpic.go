@@ -1,4 +1,4 @@
-package backend
+package img_uploaders
 
 import (
 	"bytes"
@@ -25,6 +25,13 @@ type FastpicService struct {
 	imageMiniatureSize int
 }
 
+type FastpicUploadResult struct {
+	AlbumLink string `json:"albumLink"`
+	Direct    string `json:"direct"`
+	BBThumb   string `json:"bbThumb"`
+	BBBig     string `json:"bbBig"`
+}
+
 func NewFastpicService(sid string, imageMiniatureSize int) *FastpicService {
 	return &FastpicService{
 		sid:                sid,
@@ -32,7 +39,7 @@ func NewFastpicService(sid string, imageMiniatureSize int) *FastpicService {
 	}
 }
 
-func (f *FastpicService) getFastpicUploadID(ctx context.Context) error {
+func (f *FastpicService) GetFastpicUploadID(ctx context.Context) error {
 	client := &http.Client{Timeout: 30 * time.Second}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://new.fastpic.org/", nil)
@@ -109,7 +116,7 @@ func (f *FastpicService) getFastpicUploadID(ctx context.Context) error {
 }
 
 // uploadToFastpic uploads image to fastpic
-func (f *FastpicService) uploadToFastpic(ctx context.Context, filePath, fileName string) (*FastpicUploadResult, error) {
+func (f *FastpicService) UploadToFastpic(ctx context.Context, filePath, fileName string) (*FastpicUploadResult, error) {
 	log.Printf("Starting upload of %s to fastpic...", fileName)
 
 	if _, err := os.Stat(filePath); err != nil {
