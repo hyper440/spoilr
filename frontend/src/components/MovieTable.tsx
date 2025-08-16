@@ -376,9 +376,11 @@ export default function MovieTable({
                 {t("movieTable.cancel")}
               </Button>
             )}
-            <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
-              {t("movieTable.clearAll")}
-            </Button>
+            {!processing && (
+              <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
+                {t("movieTable.clearAll")}
+              </Button>
+            )}
             {movies.length !== pendingCount && !processing && (
               <Tooltip>
                 <TooltipTrigger>
