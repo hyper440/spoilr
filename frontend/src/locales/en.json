@@ -32,7 +32,19 @@
             "screenshotsBig": "Screenshots (fullsize) separated by newlines",
             "screenshotsBigSpaced": "Screenshots (fullsize) separated by spaces",
             "thumbnail": "Movie thumbnail grid (small preview) generated with mtn",
-            "thumbnailBig": "Movie thumbnail grid (fullsize) generated with mtn"
+            "thumbnailBig": "Movie thumbnail grid (fullsize) generated with mtn",
+            "thumbnailFp": "Fastpic thumbnail (BBCode)",
+            "thumbnailFpBig": "Fastpic thumbnail big (BBCode)",
+            "screenshotsFp": "Fastpic screenshots (newline separated)",
+            "screenshotsFpSpaced": "Fastpic screenshots (space separated)",
+            "screenshotsFpBig": "Fastpic screenshots big (newline separated)",
+            "screenshotsFpBigSpaced": "Fastpic screenshots big (space separated)",
+            "thumbnailIb": "Imgbox thumbnail (BBCode)",
+            "thumbnailIbBig": "Imgbox thumbnail big (BBCode)",
+            "screenshotsIb": "Imgbox screenshots (newline separated)",
+            "screenshotsIbSpaced": "Imgbox screenshots (space separated)",
+            "screenshotsIbBig": "Imgbox screenshots big (newline separated)",
+            "screenshotsIbBigSpaced": "Imgbox screenshots big (space separated)"
         }
     },
     "settings": {

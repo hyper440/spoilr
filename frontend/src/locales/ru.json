@@ -32,7 +32,19 @@
             "screenshotsBig": "Скриншоты (полный размер), разделенные переносами строк",
             "screenshotsBigSpaced": "Скриншоты (полный размер), разделенные пробелами",
             "thumbnail": "Сетка миниатюр фильма (миниатюра), созданная с помощью mtn",
-            "thumbnailBig": "Сетка миниатюр фильма (полный размер), созданная с помощью mtn"
+            "thumbnailBig": "Сетка миниатюр фильма (полный размер), созданная с помощью mtn",
+            "thumbnailFp": "Миниатюра Fastpic (BBCode)",
+            "thumbnailFpBig": "Большая миниатюра Fastpic (BBCode)",
+            "screenshotsFp": "Скриншоты Fastpic (разделенные переносами строк)",
+            "screenshotsFpSpaced": "Скриншоты Fastpic (разделенные пробелами)",
+            "screenshotsFpBig": "Полноразмерные скриншоты Fastpic (разделенные переносами строк)",
+            "screenshotsFpBigSpaced": "Полноразмерные скриншоты Fastpic (разделенные пробелами)",
+            "thumbnailIb": "Миниатюра Imgbox (BBCode)",
+            "thumbnailIbBig": "Большая миниатюра Imgbox (BBCode)",
+            "screenshotsIb": "Скриншоты Imgbox (разделенные переносами строк)",
+            "screenshotsIbSpaced": "Скриншоты Imgbox (разделенные пробелами)",
+            "screenshotsIbBig": "Полноразмерные скриншоты Imgbox (разделенные переносами строк)",
+            "screenshotsIbBigSpaced": "Полноразмерные скриншоты Imgbox (разделенные пробелами)"
         }
     },
     "settings": {

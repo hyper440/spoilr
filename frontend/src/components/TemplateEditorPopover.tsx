@@ -52,20 +52,20 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%AUDIO_CHANNELS%", description: t("templateEditor.parameters.audioChannels"), category: "Audio" },
 
     // Fastpic Images
-    { name: "%THUMBNAIL_FP%", description: "Fastpic thumbnail (BBCode)", category: "Fastpic" },
-    { name: "%THUMBNAIL_FP_BIG%", description: "Fastpic thumbnail big (BBCode)", category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP%", description: "Fastpic screenshots (newline separated)", category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_SPACED%", description: "Fastpic screenshots (space separated)", category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_BIG%", description: "Fastpic screenshots big (newline separated)", category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_BIG_SPACED%", description: "Fastpic screenshots big (space separated)", category: "Fastpic" },
+    { name: "%THUMBNAIL_FP%", description: t("templateEditor.parameters.thumbnailFp"), category: "Fastpic" },
+    { name: "%THUMBNAIL_FP_BIG%", description: t("templateEditor.parameters.thumbnailFpBig"), category: "Fastpic" },
+    { name: "%SCREENSHOTS_FP%", description: t("templateEditor.parameters.screenshotsFp"), category: "Fastpic" },
+    { name: "%SCREENSHOTS_FP_SPACED%", description: t("templateEditor.parameters.screenshotsFpSpaced"), category: "Fastpic" },
+    { name: "%SCREENSHOTS_FP_BIG%", description: t("templateEditor.parameters.screenshotsFpBig"), category: "Fastpic" },
+    { name: "%SCREENSHOTS_FP_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsFpBigSpaced"), category: "Fastpic" },
 
     // Imgbox Images
-    { name: "%THUMBNAIL_IB%", description: "Imgbox thumbnail (BBCode)", category: "Imgbox" },
-    { name: "%THUMBNAIL_IB_BIG%", description: "Imgbox thumbnail big (BBCode)", category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB%", description: "Imgbox screenshots (newline separated)", category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_SPACED%", description: "Imgbox screenshots (space separated)", category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_BIG%", description: "Imgbox screenshots big (newline separated)", category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: "Imgbox screenshots big (space separated)", category: "Imgbox" },
+    { name: "%THUMBNAIL_IB%", description: t("templateEditor.parameters.thumbnailIb"), category: "Imgbox" },
+    { name: "%THUMBNAIL_IB_BIG%", description: t("templateEditor.parameters.thumbnailIbBig"), category: "Imgbox" },
+    { name: "%SCREENSHOTS_IB%", description: t("templateEditor.parameters.screenshotsIb"), category: "Imgbox" },
+    { name: "%SCREENSHOTS_IB_SPACED%", description: t("templateEditor.parameters.screenshotsIbSpaced"), category: "Imgbox" },
+    { name: "%SCREENSHOTS_IB_BIG%", description: t("templateEditor.parameters.screenshotsIbBig"), category: "Imgbox" },
+    { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsIbBigSpaced"), category: "Imgbox" },
   ];
 
   // Group parameters by category
