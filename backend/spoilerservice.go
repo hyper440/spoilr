@@ -34,6 +34,17 @@ type SpoilerService struct {
 	configManager       *ConfigService
 }
 
+// UploaderRequirements tracks what uploaders are needed based on template
+type UploaderRequirements struct {
+	NeedsFastpic bool
+	NeedsImgbox  bool
+
+	FastpicThumbnail   bool
+	FastpicScreenshots bool
+	ImgboxThumbnail    bool
+	ImgboxScreenshots  bool
+}
+
 func NewSpoilerService() *SpoilerService {
 	configManager := NewConfigService()
 	config := configManager.GetConfig()
@@ -46,7 +57,8 @@ func NewSpoilerService() *SpoilerService {
 			ScreenshotQuality:        config.ScreenshotQuality,
 			MaxConcurrentScreenshots: config.MaxConcurrentScreenshots,
 			MaxConcurrentUploads:     config.MaxConcurrentUploads,
-			MtnArgs:                  config.MtnArgs, // Add this line
+			MtnArgs:                  config.MtnArgs,
+			ImageMiniatureSize:       config.ImageMiniatureSize,
 		},
 		template:      config.Template,
 		processing:    false,
@@ -92,10 +104,47 @@ Duration: %DURATION%
 Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
 Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 
-%THUMBNAIL%
+%THUMBNAIL_FP%
 
-%SCREENSHOTS%
+%SCREENSHOTS_FP%
 [/spoiler]`
+}
+
+// getUploaderRequirements analyzes template to determine which uploaders are needed
+func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
+	req := UploaderRequirements{}
+
+	// Check for fastpic parameters
+	if strings.Contains(s.template, "%THUMBNAIL_FP%") {
+		req.NeedsFastpic = true
+		req.FastpicThumbnail = true
+	}
+	if strings.Contains(s.template, "%SCREENSHOTS_FP%") || strings.Contains(s.template, "%SCREENSHOTS_FP_SPACED%") {
+		req.NeedsFastpic = true
+		req.FastpicScreenshots = true
+	}
+
+	// Check for imgbox parameters
+	if strings.Contains(s.template, "%THUMBNAIL_IB%") {
+		req.NeedsImgbox = true
+		req.ImgboxThumbnail = true
+	}
+	if strings.Contains(s.template, "%SCREENSHOTS_IB%") || strings.Contains(s.template, "%SCREENSHOTS_IB_SPACED%") {
+		req.NeedsImgbox = true
+		req.ImgboxScreenshots = true
+	}
+
+	// Legacy support - treat old parameters as fastpic
+	if strings.Contains(s.template, "%THUMBNAIL%") {
+		req.NeedsFastpic = true
+		req.FastpicThumbnail = true
+	}
+	if strings.Contains(s.template, "%SCREENSHOTS%") || strings.Contains(s.template, "%SCREENSHOTS_SPACED%") {
+		req.NeedsFastpic = true
+		req.FastpicScreenshots = true
+	}
+
+	return req
 }
 
 func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool {
@@ -254,14 +303,15 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		}
 
 		movie := Movie{
-			ID:              uuid.New().String(),
-			FileName:        filepath.Base(path),
-			FilePath:        path,
-			FileSize:        formatFileSize(fileInfo.Size()),
-			FileSizeBytes:   fileInfo.Size(),
-			Params:          make(map[string]string),
-			ScreenshotURLs:  make([]string, 0),
-			ProcessingState: StateAnalyzingMedia,
+			ID:               uuid.New().String(),
+			FileName:         filepath.Base(path),
+			FilePath:         path,
+			FileSize:         formatFileSize(fileInfo.Size()),
+			FileSizeBytes:    fileInfo.Size(),
+			Params:           make(map[string]string),
+			ScreenshotURLs:   make([]string, 0),
+			ScreenshotURLsIB: make([]string, 0),
+			ProcessingState:  StateAnalyzingMedia,
 		}
 
 		s.movies = append(s.movies, movie)
@@ -545,12 +595,18 @@ func (s *SpoilerService) ResetMovieStatuses() {
 		s.movies[i].ProcessingError = ""
 		s.movies[i].Errors = make([]string, 0) // Clear individual errors
 
-		// Optionally clear processing results (uncomment if you want to clear URLs too)
+		// Clear processing results
 		s.movies[i].ThumbnailURL = ""
 		s.movies[i].ThumbnailBigURL = ""
 		s.movies[i].ScreenshotURLs = make([]string, 0)
 		s.movies[i].ScreenshotBigURLs = make([]string, 0)
 		s.movies[i].ScreenshotAlbum = ""
+
+		// Clear imgbox results
+		s.movies[i].ThumbnailURLIB = ""
+		s.movies[i].ThumbnailBigURLIB = ""
+		s.movies[i].ScreenshotURLsIB = make([]string, 0)
+		s.movies[i].ScreenshotBigURLsIB = make([]string, 0)
 	}
 	s.emitState()
 }
@@ -595,12 +651,15 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 	return pending
 }
 
-// Improved concurrent processing
+// Improved concurrent processing with dual uploader support
 func (s *SpoilerService) processAllMoviesConcurrently() error {
 	pendingMovies := s.getPendingMovies()
 	if len(pendingMovies) == 0 {
 		return nil
 	}
+
+	// Check what uploaders are needed
+	requirements := s.getUploaderRequirements()
 
 	// Create temp directory for all media
 	tempDir, err := os.MkdirTemp("", "media_processing_*")
@@ -609,12 +668,23 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Get upload ID once for all movies
+	// Initialize required services
 	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
-	fastpicService := img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
-	err = fastpicService.GetFastpicUploadID(s.cancelCtx)
-	if err != nil {
-		return fmt.Errorf("failed to get fastpic upload ID: %v", err)
+	var fastpicService *img_uploaders.FastpicService
+	var imgboxService *img_uploaders.ImgboxService
+
+	if requirements.NeedsFastpic {
+		fastpicService = img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
+		err = fastpicService.GetFastpicUploadID(s.cancelCtx)
+		if err != nil {
+			return fmt.Errorf("failed to get fastpic upload ID: %v", err)
+		}
+		log.Printf("Fastpic service initialized")
+	}
+
+	if requirements.NeedsImgbox {
+		imgboxService = img_uploaders.NewImgboxService(imageMiniatureSize)
+		log.Printf("Imgbox service initialized")
 	}
 
 	log.Printf("Starting concurrent media processing for %d movies (screenshot limit: %d, upload limit: %d)",
@@ -626,7 +696,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		wg.Add(1)
 		go func(movie Movie) {
 			defer wg.Done()
-			s.processMovieWithLimits(movie, tempDir, fastpicService)
+			s.processMovieWithLimits(movie, tempDir, fastpicService, imgboxService, requirements)
 		}(movie)
 	}
 
@@ -634,7 +704,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	return nil
 }
 
-func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService) {
+func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) {
 	// Clear any previous errors
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.Errors = make([]string, 0)
@@ -669,7 +739,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	}
 
 	// Generate media with proper concurrency limits
-	thumbnailPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, duration)
+	thumbnailPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, duration, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -695,8 +765,8 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	})
 	s.emitState()
 
-	// Upload media with concurrency limits
-	thumbnailURL, thumbnailBigURL, screenshotURLs, screenshotBigURLs, albumURL, err := s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, fastpicService)
+	// Upload media with concurrency limits to both services
+	err = s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, fastpicService, imgboxService, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -718,13 +788,8 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 		log.Printf("Movie %s completed with %d warnings/errors", movie.FileName, len(movie.Errors))
 	}
 
-	// Update movie with results
+	// Update movie with final state
 	s.updateMovieByID(movie.ID, func(m *Movie) {
-		m.ThumbnailURL = thumbnailURL
-		m.ThumbnailBigURL = thumbnailBigURL
-		m.ScreenshotURLs = screenshotURLs
-		m.ScreenshotBigURLs = screenshotBigURLs
-		m.ScreenshotAlbum = albumURL
 		m.ProcessingState = finalState
 	})
 	s.emitState()
@@ -737,7 +802,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 }
 
 // Generate thumbnail and screenshots with proper concurrency control
-func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, duration float64) (string, []string, error) {
+func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, duration float64, requirements UploaderRequirements) (string, []string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var generationStarted bool // Track if any generation has actually started
@@ -746,8 +811,11 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	var screenshotPaths []string
 	var screenshotErrors []error
 
+	// Check if we need thumbnail
+	needsThumbnail := requirements.FastpicThumbnail || requirements.ImgboxThumbnail
+
 	// Generate thumbnail (if needed)
-	if strings.Contains(s.template, "%THUMBNAIL%") || strings.Contains(s.template, "%THUMBNAIL_BIG%") {
+	if needsThumbnail {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -783,8 +851,11 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 		}()
 	}
 
+	// Check if we need screenshots
+	needsScreenshots := requirements.FastpicScreenshots || requirements.ImgboxScreenshots
+
 	// Generate screenshots concurrently (each screenshot gets its own goroutine)
-	if s.settings.ScreenshotCount > 0 {
+	if needsScreenshots && s.settings.ScreenshotCount > 0 {
 		screenshotPaths = make([]string, s.settings.ScreenshotCount)
 		screenshotErrors = make([]error, s.settings.ScreenshotCount)
 
@@ -850,20 +921,16 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	return thumbnailPath, validScreenshots, nil
 }
 
-// Upload media with proper concurrency control
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService) (string, string, []string, []string, string, error) {
+// Upload media with proper concurrency control to both services
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var uploadStarted bool // Track if any upload has actually started
 
-	var thumbnailURL, thumbnailBigURL, albumURL string
-	screenshotURLs := make([]string, len(screenshotPaths))
-	screenshotBigURLs := make([]string, len(screenshotPaths))
-
 	baseFileName := strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath))
 
-	// Upload thumbnail
-	if thumbnailPath != "" {
+	// Upload thumbnail to fastpic
+	if thumbnailPath != "" && requirements.FastpicThumbnail && fastpicService != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -887,18 +954,18 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
 				result, err := fastpicService.UploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
 				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Thumbnail upload failed: %v", err))
-					log.Printf("Failed to upload thumbnail for %s: %v", movie.FileName, err)
+					s.addMovieError(movie.ID, fmt.Sprintf("Fastpic thumbnail upload failed: %v", err))
+					log.Printf("Failed to upload thumbnail to fastpic for %s: %v", movie.FileName, err)
 					return
 				}
 
-				mu.Lock()
-				thumbnailURL = result.BBThumb
-				thumbnailBigURL = result.BBBig
-				if albumURL == "" {
-					albumURL = result.AlbumLink
-				}
-				mu.Unlock()
+				s.updateMovieByID(movie.ID, func(m *Movie) {
+					m.ThumbnailURL = result.BBThumb
+					m.ThumbnailBigURL = result.BBBig
+					if m.ScreenshotAlbum == "" {
+						m.ScreenshotAlbum = result.AlbumLink
+					}
+				})
 
 			case <-s.cancelCtx.Done():
 				return
@@ -906,10 +973,10 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 		}()
 	}
 
-	// Upload screenshots concurrently
-	for i, screenshotPath := range screenshotPaths {
+	// Upload thumbnail to imgbox
+	if thumbnailPath != "" && requirements.ImgboxThumbnail && imgboxService != nil {
 		wg.Add(1)
-		go func(index int, path string) {
+		go func() {
 			defer wg.Done()
 
 			// Acquire upload semaphore
@@ -928,46 +995,136 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				}
 				mu.Unlock()
 
-				fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
-				result, err := fastpicService.UploadToFastpic(s.cancelCtx, path, fileName)
+				result, err := imgboxService.UploadImage(s.cancelCtx, thumbnailPath)
 				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d upload failed: %v", index+1, err))
-					log.Printf("Failed to upload screenshot %d for %s: %v", index+1, movie.FileName, err)
+					s.addMovieError(movie.ID, fmt.Sprintf("Imgbox thumbnail upload failed: %v", err))
+					log.Printf("Failed to upload thumbnail to imgbox for %s: %v", movie.FileName, err)
 					return
 				}
 
-				mu.Lock()
-				screenshotURLs[index] = result.BBThumb
-				screenshotBigURLs[index] = result.BBBig
-				if albumURL == "" {
-					albumURL = result.AlbumLink
-				}
-				mu.Unlock()
+				s.updateMovieByID(movie.ID, func(m *Movie) {
+					m.ThumbnailURLIB = result.BBThumb
+					m.ThumbnailBigURLIB = result.BBBig
+				})
 
 			case <-s.cancelCtx.Done():
 				return
 			}
-		}(i, screenshotPath)
+		}()
+	}
+
+	// Upload screenshots to fastpic
+	if requirements.FastpicScreenshots && fastpicService != nil {
+		for i, screenshotPath := range screenshotPaths {
+			wg.Add(1)
+			go func(index int, path string) {
+				defer wg.Done()
+
+				// Acquire upload semaphore
+				select {
+				case s.uploadSemaphore <- struct{}{}:
+					defer func() { <-s.uploadSemaphore }()
+
+					// Update to uploading state when first upload actually starts
+					mu.Lock()
+					if !uploadStarted {
+						uploadStarted = true
+						s.updateMovieByID(movie.ID, func(m *Movie) {
+							m.ProcessingState = StateUploadingScreenshots
+						})
+						s.emitState()
+					}
+					mu.Unlock()
+
+					fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
+					result, err := fastpicService.UploadToFastpic(s.cancelCtx, path, fileName)
+					if err != nil {
+						s.addMovieError(movie.ID, fmt.Sprintf("Fastpic screenshot %d upload failed: %v", index+1, err))
+						log.Printf("Failed to upload screenshot %d to fastpic for %s: %v", index+1, movie.FileName, err)
+						return
+					}
+
+					s.updateMovieByID(movie.ID, func(m *Movie) {
+						// Ensure slices are properly sized
+						for len(m.ScreenshotURLs) <= index {
+							m.ScreenshotURLs = append(m.ScreenshotURLs, "")
+						}
+						for len(m.ScreenshotBigURLs) <= index {
+							m.ScreenshotBigURLs = append(m.ScreenshotBigURLs, "")
+						}
+
+						m.ScreenshotURLs[index] = result.BBThumb
+						m.ScreenshotBigURLs[index] = result.BBBig
+						if m.ScreenshotAlbum == "" {
+							m.ScreenshotAlbum = result.AlbumLink
+						}
+					})
+
+				case <-s.cancelCtx.Done():
+					return
+				}
+			}(i, screenshotPath)
+		}
+	}
+
+	// Upload screenshots to imgbox
+	if requirements.ImgboxScreenshots && imgboxService != nil {
+		for i, screenshotPath := range screenshotPaths {
+			wg.Add(1)
+			go func(index int, path string) {
+				defer wg.Done()
+
+				// Acquire upload semaphore
+				select {
+				case s.uploadSemaphore <- struct{}{}:
+					defer func() { <-s.uploadSemaphore }()
+
+					// Update to uploading state when first upload actually starts
+					mu.Lock()
+					if !uploadStarted {
+						uploadStarted = true
+						s.updateMovieByID(movie.ID, func(m *Movie) {
+							m.ProcessingState = StateUploadingScreenshots
+						})
+						s.emitState()
+					}
+					mu.Unlock()
+
+					result, err := imgboxService.UploadImage(s.cancelCtx, path)
+					if err != nil {
+						s.addMovieError(movie.ID, fmt.Sprintf("Imgbox screenshot %d upload failed: %v", index+1, err))
+						log.Printf("Failed to upload screenshot %d to imgbox for %s: %v", index+1, movie.FileName, err)
+						return
+					}
+
+					s.updateMovieByID(movie.ID, func(m *Movie) {
+						// Ensure slices are properly sized
+						for len(m.ScreenshotURLsIB) <= index {
+							m.ScreenshotURLsIB = append(m.ScreenshotURLsIB, "")
+						}
+						for len(m.ScreenshotBigURLsIB) <= index {
+							m.ScreenshotBigURLsIB = append(m.ScreenshotBigURLsIB, "")
+						}
+
+						m.ScreenshotURLsIB[index] = result.BBThumb
+						m.ScreenshotBigURLsIB[index] = result.BBBig
+					})
+
+				case <-s.cancelCtx.Done():
+					return
+				}
+			}(i, screenshotPath)
+		}
 	}
 
 	wg.Wait()
 
 	// Check for cancellation
 	if s.cancelCtx.Err() != nil {
-		return "", "", nil, nil, "", s.cancelCtx.Err()
+		return s.cancelCtx.Err()
 	}
 
-	// Filter out failed uploads
-	var validScreenshotURLs, validScreenshotBigURLs []string
-	for i := range screenshotURLs {
-		if screenshotURLs[i] != "" {
-			validScreenshotURLs = append(validScreenshotURLs, screenshotURLs[i])
-			validScreenshotBigURLs = append(validScreenshotBigURLs, screenshotBigURLs[i])
-		}
-	}
-
-	// Don't return error if only some uploads failed - we collect individual errors
-	return thumbnailURL, thumbnailBigURL, validScreenshotURLs, validScreenshotBigURLs, albumURL, nil
+	return nil
 }
 
 func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (string, error) {
@@ -1168,44 +1325,120 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
 
-	// Handle thumbnail (BBThumb)
+	// Handle fastpic thumbnails
 	if movie.ThumbnailURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ThumbnailURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", movie.ThumbnailURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ThumbnailURL) // Legacy support
 	} else {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "")
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", "")
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "") // Legacy support
 	}
 
-	// Handle thumbnail big (BBBig)
+	// Handle fastpic thumbnail big
 	if movie.ThumbnailBigURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ThumbnailBigURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", movie.ThumbnailBigURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ThumbnailBigURL) // Legacy support
 	} else {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "") // Legacy support
 	}
 
-	// Handle screenshots (BBThumb) with newline separator
-	if len(movie.ScreenshotURLs) > 0 {
-		screenshotsStr := strings.Join(movie.ScreenshotURLs, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", screenshotsStr)
+	// Handle imgbox thumbnails
+	if movie.ThumbnailURLIB != "" {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", movie.ThumbnailURLIB)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", "")
+	}
+
+	// Handle imgbox thumbnail big
+	if movie.ThumbnailBigURLIB != "" {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", movie.ThumbnailBigURLIB)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", "")
+	}
+
+	// Handle fastpic screenshots (BBThumb) with newline separator
+	fastpicScreenshots := make([]string, 0)
+	for _, url := range movie.ScreenshotURLs {
+		if url != "" {
+			fastpicScreenshots = append(fastpicScreenshots, url)
+		}
+	}
+	if len(fastpicScreenshots) > 0 {
+		screenshotsStr := strings.Join(fastpicScreenshots, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", screenshotsStr)
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", screenshotsStr) // Legacy support
 
 		// Handle screenshots with space separator
-		screenshotsSpaced := strings.Join(movie.ScreenshotURLs, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", screenshotsSpaced)
+		screenshotsSpaced := strings.Join(fastpicScreenshots, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", screenshotsSpaced)
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", screenshotsSpaced) // Legacy support
 	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", "") // Legacy support
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", "") // Legacy support
 	}
 
-	// Handle screenshots big (BBBig) with newline separator
-	if len(movie.ScreenshotBigURLs) > 0 {
-		screenshotsBigStr := strings.Join(movie.ScreenshotBigURLs, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", screenshotsBigStr)
+	// Handle fastpic screenshots big (BBBig) with newline separator
+	fastpicScreenshotsBig := make([]string, 0)
+	for _, url := range movie.ScreenshotBigURLs {
+		if url != "" {
+			fastpicScreenshotsBig = append(fastpicScreenshotsBig, url)
+		}
+	}
+	if len(fastpicScreenshotsBig) > 0 {
+		screenshotsBigStr := strings.Join(fastpicScreenshotsBig, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", screenshotsBigStr)
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", screenshotsBigStr) // Legacy support
 
 		// Handle screenshots big with space separator
-		screenshotsBigSpaced := strings.Join(movie.ScreenshotBigURLs, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", screenshotsBigSpaced)
+		screenshotsBigSpaced := strings.Join(fastpicScreenshotsBig, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", screenshotsBigSpaced)
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", screenshotsBigSpaced) // Legacy support
 	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", "") // Legacy support
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", "") // Legacy support
+	}
+
+	// Handle imgbox screenshots (BBThumb) with newline separator
+	imgboxScreenshots := make([]string, 0)
+	for _, url := range movie.ScreenshotURLsIB {
+		if url != "" {
+			imgboxScreenshots = append(imgboxScreenshots, url)
+		}
+	}
+	if len(imgboxScreenshots) > 0 {
+		screenshotsStr := strings.Join(imgboxScreenshots, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB%", screenshotsStr)
+
+		// Handle screenshots with space separator
+		screenshotsSpaced := strings.Join(imgboxScreenshots, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_SPACED%", screenshotsSpaced)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_SPACED%", "")
+	}
+
+	// Handle imgbox screenshots big (BBBig) with newline separator
+	imgboxScreenshotsBig := make([]string, 0)
+	for _, url := range movie.ScreenshotBigURLsIB {
+		if url != "" {
+			imgboxScreenshotsBig = append(imgboxScreenshotsBig, url)
+		}
+	}
+	if len(imgboxScreenshotsBig) > 0 {
+		screenshotsBigStr := strings.Join(imgboxScreenshotsBig, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG%", screenshotsBigStr)
+
+		// Handle screenshots big with space separator
+		screenshotsBigSpaced := strings.Join(imgboxScreenshotsBig, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG_SPACED%", screenshotsBigSpaced)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG_SPACED%", "")
 	}
 
 	// Replace parameter placeholders
@@ -1237,6 +1470,7 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 		MaxConcurrentUploads:     settings.MaxConcurrentUploads,
 		Template:                 s.template,
 		MtnArgs:                  settings.MtnArgs,
+		ImageMiniatureSize:       settings.ImageMiniatureSize,
 	}
 
 	if err := s.configManager.UpdateConfig(config); err != nil {

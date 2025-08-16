@@ -116,25 +116,51 @@ export class Movie {
     "audioCodec": string;
 
     /**
-     * BBThumb URLs
+     * Fastpic URLs
+     * Fastpic BBThumb URLs
      */
     "screenshotUrls": string[];
 
     /**
-     * BBBig URLs
+     * Fastpic BBBig URLs
      */
     "screenshotBigUrls": string[];
+
+    /**
+     * Fastpic album
+     */
     "screenshotAlbum": string;
 
     /**
-     * BBThumb URL
+     * Fastpic BBThumb URL
      */
     "thumbnailUrl": string;
 
     /**
-     * BBBig URL
+     * Fastpic BBBig URL
      */
     "thumbnailBigUrl": string;
+
+    /**
+     * Imgbox URLs
+     * Imgbox BBThumb URLs
+     */
+    "screenshotUrlsIB": string[];
+
+    /**
+     * Imgbox BBBig URLs
+     */
+    "screenshotBigUrlsIB": string[];
+
+    /**
+     * Imgbox BBThumb URL
+     */
+    "thumbnailUrlIB": string;
+
+    /**
+     * Imgbox BBBig URL
+     */
+    "thumbnailBigUrlIB": string;
     "params": { [_: string]: string };
 
     /**
@@ -208,6 +234,18 @@ export class Movie {
         if (!("thumbnailBigUrl" in $$source)) {
             this["thumbnailBigUrl"] = "";
         }
+        if (!("screenshotUrlsIB" in $$source)) {
+            this["screenshotUrlsIB"] = [];
+        }
+        if (!("screenshotBigUrlsIB" in $$source)) {
+            this["screenshotBigUrlsIB"] = [];
+        }
+        if (!("thumbnailUrlIB" in $$source)) {
+            this["thumbnailUrlIB"] = "";
+        }
+        if (!("thumbnailBigUrlIB" in $$source)) {
+            this["thumbnailBigUrlIB"] = "";
+        }
         if (!("params" in $$source)) {
             this["params"] = {};
         }
@@ -224,8 +262,10 @@ export class Movie {
     static createFrom($$source: any = {}): Movie {
         const $$createField13_0 = $$createType2;
         const $$createField14_0 = $$createType2;
-        const $$createField18_0 = $$createType3;
-        const $$createField21_0 = $$createType2;
+        const $$createField18_0 = $$createType2;
+        const $$createField19_0 = $$createType2;
+        const $$createField22_0 = $$createType3;
+        const $$createField25_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
@@ -233,11 +273,17 @@ export class Movie {
         if ("screenshotBigUrls" in $$parsedSource) {
             $$parsedSource["screenshotBigUrls"] = $$createField14_0($$parsedSource["screenshotBigUrls"]);
         }
+        if ("screenshotUrlsIB" in $$parsedSource) {
+            $$parsedSource["screenshotUrlsIB"] = $$createField18_0($$parsedSource["screenshotUrlsIB"]);
+        }
+        if ("screenshotBigUrlsIB" in $$parsedSource) {
+            $$parsedSource["screenshotBigUrlsIB"] = $$createField19_0($$parsedSource["screenshotBigUrlsIB"]);
+        }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField18_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField22_0($$parsedSource["params"]);
         }
         if ("errors" in $$parsedSource) {
-            $$parsedSource["errors"] = $$createField21_0($$parsedSource["errors"]);
+            $$parsedSource["errors"] = $$createField25_0($$parsedSource["errors"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }
