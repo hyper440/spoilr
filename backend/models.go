@@ -17,17 +17,17 @@ type Movie struct {
 	AudioCodec    string `json:"audioCodec"`
 
 	// Fastpic URLs
-	ScreenshotURLs    []string `json:"screenshotUrls"`    // Fastpic BBThumb URLs
-	ScreenshotBigURLs []string `json:"screenshotBigUrls"` // Fastpic BBBig URLs
-	ScreenshotAlbum   string   `json:"screenshotAlbum"`   // Fastpic album
-	ThumbnailURL      string   `json:"thumbnailUrl"`      // Fastpic BBThumb URL
-	ThumbnailBigURL   string   `json:"thumbnailBigUrl"`   // Fastpic BBBig URL
+	ContactSheetURL    string   `json:"contactSheetUrl"`    // MTN-generated contact sheet (small)
+	ContactSheetBigURL string   `json:"contactSheetBigUrl"` // MTN-generated contact sheet (big)
+	ScreenshotURLs     []string `json:"screenshotUrls"`     // Individual screenshots (small)
+	ScreenshotBigURLs  []string `json:"screenshotBigUrls"`  // Individual screenshots (big)
+	ScreenshotAlbum    string   `json:"screenshotAlbum"`    // Album link
 
-	// Imgbox URLs
-	ScreenshotURLsIB    []string `json:"screenshotUrlsIB"`    // Imgbox BBThumb URLs
-	ScreenshotBigURLsIB []string `json:"screenshotBigUrlsIB"` // Imgbox BBBig URLs
-	ThumbnailURLIB      string   `json:"thumbnailUrlIB"`      // Imgbox BBThumb URL
-	ThumbnailBigURLIB   string   `json:"thumbnailBigUrlIB"`   // Imgbox BBBig URL
+	// Imgbox Results - Renamed from Thumbnail* to ContactSheet*
+	ContactSheetURLIB    string   `json:"contactSheetUrlIb"`    // MTN-generated contact sheet (small)
+	ContactSheetBigURLIB string   `json:"contactSheetBigUrlIb"` // MTN-generated contact sheet (big)
+	ScreenshotURLsIB     []string `json:"screenshotUrlsIb"`     // Individual screenshots (small)
+	ScreenshotBigURLsIB  []string `json:"screenshotBigUrlsIb"`  // Individual screenshots (big)
 
 	Params          map[string]string `json:"params"`
 	ProcessingState string            `json:"processingState"`           // State constants defined below

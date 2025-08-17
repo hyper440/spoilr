@@ -39,10 +39,10 @@ type UploaderRequirements struct {
 	NeedsFastpic bool
 	NeedsImgbox  bool
 
-	FastpicThumbnail   bool
-	FastpicScreenshots bool
-	ImgboxThumbnail    bool
-	ImgboxScreenshots  bool
+	FastpicContactSheet bool
+	FastpicScreenshots  bool
+	ImgboxContactSheet  bool
+	ImgboxScreenshots   bool
 }
 
 func NewSpoilerService() *SpoilerService {
@@ -104,7 +104,7 @@ Duration: %DURATION%
 Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
 Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 
-%THUMBNAIL_FP%
+%CONTACT_SHEET_FP%
 
 %SCREENSHOTS_FP%
 [/spoiler]`
@@ -115,9 +115,9 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	req := UploaderRequirements{}
 
 	// Check for fastpic parameters
-	if strings.Contains(s.template, "%THUMBNAIL_FP%") {
+	if strings.Contains(s.template, "%CONTACT_SHEET_FP%") {
 		req.NeedsFastpic = true
-		req.FastpicThumbnail = true
+		req.FastpicContactSheet = true
 	}
 	if strings.Contains(s.template, "%SCREENSHOTS_FP%") || strings.Contains(s.template, "%SCREENSHOTS_FP_SPACED%") {
 		req.NeedsFastpic = true
@@ -125,9 +125,9 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for imgbox parameters
-	if strings.Contains(s.template, "%THUMBNAIL_IB%") {
+	if strings.Contains(s.template, "%CONTACT_SHEET_IB%") {
 		req.NeedsImgbox = true
-		req.ImgboxThumbnail = true
+		req.ImgboxContactSheet = true
 	}
 	if strings.Contains(s.template, "%SCREENSHOTS_IB%") || strings.Contains(s.template, "%SCREENSHOTS_IB_SPACED%") {
 		req.NeedsImgbox = true
@@ -135,9 +135,13 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Legacy support - treat old parameters as fastpic
-	if strings.Contains(s.template, "%THUMBNAIL%") {
+	if strings.Contains(s.template, "%THUMBNAIL_FP%") || strings.Contains(s.template, "%THUMBNAIL%") {
 		req.NeedsFastpic = true
-		req.FastpicThumbnail = true
+		req.FastpicContactSheet = true
+	}
+	if strings.Contains(s.template, "%THUMBNAIL_IB%") {
+		req.NeedsImgbox = true
+		req.ImgboxContactSheet = true
 	}
 	if strings.Contains(s.template, "%SCREENSHOTS%") || strings.Contains(s.template, "%SCREENSHOTS_SPACED%") {
 		req.NeedsFastpic = true
@@ -595,22 +599,22 @@ func (s *SpoilerService) ResetMovieStatuses() {
 		s.movies[i].ProcessingError = ""
 		s.movies[i].Errors = make([]string, 0) // Clear individual errors
 
-		// Clear processing results
-		s.movies[i].ThumbnailURL = ""
-		s.movies[i].ThumbnailBigURL = ""
+		// Clear processing results - Contact sheet fields
+		s.movies[i].ContactSheetURL = ""
+		s.movies[i].ContactSheetBigURL = ""
 		s.movies[i].ScreenshotURLs = make([]string, 0)
 		s.movies[i].ScreenshotBigURLs = make([]string, 0)
 		s.movies[i].ScreenshotAlbum = ""
 
-		// Clear imgbox results
-		s.movies[i].ThumbnailURLIB = ""
-		s.movies[i].ThumbnailBigURLIB = ""
+		// Clear imgbox results - Contact sheet fields
+		s.movies[i].ContactSheetURLIB = ""
+		s.movies[i].ContactSheetBigURLIB = ""
 		s.movies[i].ScreenshotURLsIB = make([]string, 0)
 		s.movies[i].ScreenshotBigURLsIB = make([]string, 0)
+
 	}
 	s.emitState()
 }
-
 func (s *SpoilerService) ReorderMovies(newOrder []string) error {
 	movieMap := make(map[string]Movie)
 	for _, movie := range s.movies {
@@ -739,7 +743,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	}
 
 	// Generate media with proper concurrency limits
-	thumbnailPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, duration, requirements)
+	contactSheetPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, duration, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -750,7 +754,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	}
 
 	// Check if we have anything to upload
-	if thumbnailPath == "" && len(screenshotPaths) == 0 {
+	if contactSheetPath == "" && len(screenshotPaths) == 0 {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
 			m.ProcessingError = "No media generated"
@@ -766,7 +770,7 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	s.emitState()
 
 	// Upload media with concurrency limits to both services
-	err = s.uploadMediaConcurrently(movie, thumbnailPath, screenshotPaths, fastpicService, imgboxService, requirements)
+	err = s.uploadMediaConcurrently(movie, contactSheetPath, screenshotPaths, fastpicService, imgboxService, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -801,26 +805,26 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	}
 }
 
-// Generate thumbnail and screenshots with proper concurrency control
+// Generate contact sheet and screenshots with proper concurrency control
 func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, duration float64, requirements UploaderRequirements) (string, []string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var generationStarted bool // Track if any generation has actually started
 
-	var thumbnailPath string
+	var contactSheetPath string
 	var screenshotPaths []string
 	var screenshotErrors []error
 
-	// Check if we need thumbnail
-	needsThumbnail := requirements.FastpicThumbnail || requirements.ImgboxThumbnail
+	// Check if we need contact sheet
+	needsContactSheet := requirements.FastpicContactSheet || requirements.ImgboxContactSheet
 
-	// Generate thumbnail (if needed)
-	if needsThumbnail {
+	// Generate contact sheet (if needed)
+	if needsContactSheet {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			// Acquire screenshot semaphore for thumbnail generation
+			// Acquire screenshot semaphore for contact sheet generation
 			select {
 			case s.screenshotSemaphore <- struct{}{}:
 				defer func() { <-s.screenshotSemaphore }()
@@ -836,13 +840,13 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 				}
 				mu.Unlock()
 
-				path, err := s.generateMovieThumbnail(movie.FilePath, tempDir)
-				thumbnailPath = path
+				path, err := s.generateMovieContactSheet(movie.FilePath, tempDir)
+				contactSheetPath = path
 
-				// Add error to movie's error list if thumbnail generation failed
+				// Add error to movie's error list if contact sheet generation failed
 				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Thumbnail generation failed: %v", err))
-					log.Printf("Failed to generate thumbnail for %s: %v", movie.FileName, err)
+					s.addMovieError(movie.ID, fmt.Sprintf("Contact sheet generation failed: %v", err))
+					log.Printf("Failed to generate contact sheet for %s: %v", movie.FileName, err)
 				}
 
 			case <-s.cancelCtx.Done():
@@ -918,19 +922,19 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	}
 
 	// Don't return error if only some screenshots failed - we collect individual errors
-	return thumbnailPath, validScreenshots, nil
+	return contactSheetPath, validScreenshots, nil
 }
 
 // Upload media with proper concurrency control to both services
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) error {
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var uploadStarted bool // Track if any upload has actually started
 
 	baseFileName := strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath))
 
-	// Upload thumbnail to fastpic
-	if thumbnailPath != "" && requirements.FastpicThumbnail && fastpicService != nil {
+	// Upload contact sheet to fastpic
+	if contactSheetPath != "" && requirements.FastpicContactSheet && fastpicService != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -951,17 +955,17 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				}
 				mu.Unlock()
 
-				fileName := fmt.Sprintf("%s_thumbnail.jpg", baseFileName)
-				result, err := fastpicService.UploadToFastpic(s.cancelCtx, thumbnailPath, fileName)
+				fileName := fmt.Sprintf("%s_contact_sheet.jpg", baseFileName)
+				result, err := fastpicService.UploadToFastpic(s.cancelCtx, contactSheetPath, fileName)
 				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Fastpic thumbnail upload failed: %v", err))
-					log.Printf("Failed to upload thumbnail to fastpic for %s: %v", movie.FileName, err)
+					s.addMovieError(movie.ID, fmt.Sprintf("Fastpic contact sheet upload failed: %v", err))
+					log.Printf("Failed to upload contact sheet to fastpic for %s: %v", movie.FileName, err)
 					return
 				}
 
 				s.updateMovieByID(movie.ID, func(m *Movie) {
-					m.ThumbnailURL = result.BBThumb
-					m.ThumbnailBigURL = result.BBBig
+					m.ContactSheetURL = result.BBThumb
+					m.ContactSheetBigURL = result.BBBig
 					if m.ScreenshotAlbum == "" {
 						m.ScreenshotAlbum = result.AlbumLink
 					}
@@ -973,8 +977,8 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 		}()
 	}
 
-	// Upload thumbnail to imgbox
-	if thumbnailPath != "" && requirements.ImgboxThumbnail && imgboxService != nil {
+	// Upload contact sheet to imgbox
+	if contactSheetPath != "" && requirements.ImgboxContactSheet && imgboxService != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -995,16 +999,16 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 				}
 				mu.Unlock()
 
-				result, err := imgboxService.UploadImage(s.cancelCtx, thumbnailPath)
+				result, err := imgboxService.UploadImage(s.cancelCtx, contactSheetPath)
 				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Imgbox thumbnail upload failed: %v", err))
-					log.Printf("Failed to upload thumbnail to imgbox for %s: %v", movie.FileName, err)
+					s.addMovieError(movie.ID, fmt.Sprintf("Imgbox contact sheet upload failed: %v", err))
+					log.Printf("Failed to upload contact sheet to imgbox for %s: %v", movie.FileName, err)
 					return
 				}
 
 				s.updateMovieByID(movie.ID, func(m *Movie) {
-					m.ThumbnailURLIB = result.BBThumb
-					m.ThumbnailBigURLIB = result.BBBig
+					m.ContactSheetURLIB = result.BBThumb
+					m.ContactSheetBigURLIB = result.BBBig
 				})
 
 			case <-s.cancelCtx.Done():
@@ -1127,17 +1131,17 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, thumbnailPath stri
 	return nil
 }
 
-func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (string, error) {
+func (s *SpoilerService) generateMovieContactSheet(videoPath, tempDir string) (string, error) {
 	// Check if mtn is available before trying to use it
 	if _, err := exec.LookPath("mtn"); err != nil {
 		// Emit event that mtn is missing (only once per processing session)
 		if s.app != nil {
 			s.app.Event.Emit("mtn-missing", map[string]string{
-				"message": "MTN (Movie Thumbnailer) is not installed or not found in PATH. Thumbnail generation will be skipped.",
+				"message": "MTN (Movie Thumbnailer) is not installed or not found in PATH. Contact sheet generation will be skipped.",
 			})
 		}
-		log.Printf("MTN not found, skipping thumbnail generation for %s", filepath.Base(videoPath))
-		return "", nil // Return empty string to skip thumbnail
+		log.Printf("MTN not found, skipping contact sheet generation for %s", filepath.Base(videoPath))
+		return "", nil // Return empty string to skip contact sheet
 	}
 
 	// Parse user-configured MTN arguments
@@ -1153,7 +1157,7 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		if s.cancelCtx.Err() != nil {
-			return "", fmt.Errorf("thumbnail generation cancelled: %v", s.cancelCtx.Err())
+			return "", fmt.Errorf("contact sheet generation cancelled: %v", s.cancelCtx.Err())
 		}
 
 		// Include the actual mtn output in the error message
@@ -1189,13 +1193,13 @@ func (s *SpoilerService) generateMovieThumbnail(videoPath, tempDir string) (stri
 		}
 	}
 
-	// Log output for debugging when no thumbnail is found
+	// Log output for debugging when no contact sheet is found
 	outputStr := strings.TrimSpace(string(output))
 	if outputStr != "" {
 		log.Printf("MTN output for %s: %s", filepath.Base(videoPath), outputStr)
 	}
 
-	return "", fmt.Errorf("thumbnail file not found after generation - no .jpg files in %s", tempDir)
+	return "", fmt.Errorf("contact sheet file not found after generation - no .jpg files in %s", tempDir)
 }
 
 func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
@@ -1325,35 +1329,47 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
 	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
 
-	// Handle fastpic thumbnails
-	if movie.ThumbnailURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", movie.ThumbnailURL)
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ThumbnailURL) // Legacy support
+	// Handle fastpic contact sheets
+	if movie.ContactSheetURL != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", movie.ContactSheetURL)
+		// Legacy support - keep old template variables for backward compatibility
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", movie.ContactSheetURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ContactSheetURL)
 	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", "")
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "") // Legacy support
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "")
 	}
 
-	// Handle fastpic thumbnail big
-	if movie.ThumbnailBigURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", movie.ThumbnailBigURL)
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ThumbnailBigURL) // Legacy support
+	// Handle fastpic contact sheet big
+	if movie.ContactSheetBigURL != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", movie.ContactSheetBigURL)
+		// Legacy support
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", movie.ContactSheetBigURL)
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ContactSheetBigURL)
 	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", "")
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "") // Legacy support
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "")
 	}
 
-	// Handle imgbox thumbnails
-	if movie.ThumbnailURLIB != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", movie.ThumbnailURLIB)
+	// Handle imgbox contact sheets
+	if movie.ContactSheetURLIB != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", movie.ContactSheetURLIB)
+		// Legacy support
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", movie.ContactSheetURLIB)
 	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", "")
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", "")
 	}
 
-	// Handle imgbox thumbnail big
-	if movie.ThumbnailBigURLIB != "" {
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", movie.ThumbnailBigURLIB)
+	// Handle imgbox contact sheet big
+	if movie.ContactSheetBigURLIB != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", movie.ContactSheetBigURLIB)
+		// Legacy support
+		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", movie.ContactSheetBigURLIB)
 	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", "")
 		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", "")
 	}
 

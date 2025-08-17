@@ -51,21 +51,23 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%AUDIO_SAMPLE_RATE%", description: t("templateEditor.parameters.audioSampleRate"), category: "Audio" },
     { name: "%AUDIO_CHANNELS%", description: t("templateEditor.parameters.audioChannels"), category: "Audio" },
 
-    // Fastpic Images
-    { name: "%THUMBNAIL_FP%", description: t("templateEditor.parameters.thumbnailFp"), category: "Fastpic" },
-    { name: "%THUMBNAIL_FP_BIG%", description: t("templateEditor.parameters.thumbnailFpBig"), category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP%", description: t("templateEditor.parameters.screenshotsFp"), category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_SPACED%", description: t("templateEditor.parameters.screenshotsFpSpaced"), category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_BIG%", description: t("templateEditor.parameters.screenshotsFpBig"), category: "Fastpic" },
-    { name: "%SCREENSHOTS_FP_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsFpBigSpaced"), category: "Fastpic" },
+    // Contact Sheets (MTN-generated grids)
+    { name: "%CONTACT_SHEET_FP%", description: t("templateEditor.parameters.contactSheetFp"), category: "Contact Sheets" },
+    { name: "%CONTACT_SHEET_FP_BIG%", description: t("templateEditor.parameters.contactSheetFpBig"), category: "Contact Sheets" },
+    { name: "%CONTACT_SHEET_IB%", description: t("templateEditor.parameters.contactSheetIb"), category: "Contact Sheets" },
+    { name: "%CONTACT_SHEET_IB_BIG%", description: t("templateEditor.parameters.contactSheetIbBig"), category: "Contact Sheets" },
 
-    // Imgbox Images
-    { name: "%THUMBNAIL_IB%", description: t("templateEditor.parameters.thumbnailIb"), category: "Imgbox" },
-    { name: "%THUMBNAIL_IB_BIG%", description: t("templateEditor.parameters.thumbnailIbBig"), category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB%", description: t("templateEditor.parameters.screenshotsIb"), category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_SPACED%", description: t("templateEditor.parameters.screenshotsIbSpaced"), category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_BIG%", description: t("templateEditor.parameters.screenshotsIbBig"), category: "Imgbox" },
-    { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsIbBigSpaced"), category: "Imgbox" },
+    // Fastpic Screenshots
+    { name: "%SCREENSHOTS_FP%", description: t("templateEditor.parameters.screenshotsFp"), category: "Fastpic Screenshots" },
+    { name: "%SCREENSHOTS_FP_SPACED%", description: t("templateEditor.parameters.screenshotsFpSpaced"), category: "Fastpic Screenshots" },
+    { name: "%SCREENSHOTS_FP_BIG%", description: t("templateEditor.parameters.screenshotsFpBig"), category: "Fastpic Screenshots" },
+    { name: "%SCREENSHOTS_FP_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsFpBigSpaced"), category: "Fastpic Screenshots" },
+
+    // Imgbox Screenshots
+    { name: "%SCREENSHOTS_IB%", description: t("templateEditor.parameters.screenshotsIb"), category: "Imgbox Screenshots" },
+    { name: "%SCREENSHOTS_IB_SPACED%", description: t("templateEditor.parameters.screenshotsIbSpaced"), category: "Imgbox Screenshots" },
+    { name: "%SCREENSHOTS_IB_BIG%", description: t("templateEditor.parameters.screenshotsIbBig"), category: "Imgbox Screenshots" },
+    { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsIbBigSpaced"), category: "Imgbox Screenshots" },
   ];
 
   // Group parameters by category
@@ -79,7 +81,7 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
   }, {} as Record<string, TemplateParam[]>);
 
   // Define category order
-  const categoryOrder = ["File Info", "Video", "Audio", "Fastpic", "Imgbox", "Legacy", "Other"];
+  const categoryOrder = ["File Info", "Video", "Audio", "Contact Sheets", "Fastpic Screenshots", "Imgbox Screenshots", "Legacy", "Other"];
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -123,9 +125,11 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
         return "bg-green-100 text-green-800 hover:bg-green-200";
       case "Audio":
         return "bg-purple-100 text-purple-800 hover:bg-purple-200";
-      case "Fastpic":
+      case "Contact Sheets":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
+      case "Fastpic Screenshots":
         return "bg-orange-100 text-orange-800 hover:bg-orange-200";
-      case "Imgbox":
+      case "Imgbox Screenshots":
         return "bg-cyan-100 text-cyan-800 hover:bg-cyan-200";
       case "Legacy":
         return "bg-gray-100 text-gray-600 hover:bg-gray-200";

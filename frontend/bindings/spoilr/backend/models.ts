@@ -117,50 +117,50 @@ export class Movie {
 
     /**
      * Fastpic URLs
-     * Fastpic BBThumb URLs
+     * MTN-generated contact sheet (small)
+     */
+    "contactSheetUrl": string;
+
+    /**
+     * MTN-generated contact sheet (big)
+     */
+    "contactSheetBigUrl": string;
+
+    /**
+     * Individual screenshots (small)
      */
     "screenshotUrls": string[];
 
     /**
-     * Fastpic BBBig URLs
+     * Individual screenshots (big)
      */
     "screenshotBigUrls": string[];
 
     /**
-     * Fastpic album
+     * Album link
      */
     "screenshotAlbum": string;
 
     /**
-     * Fastpic BBThumb URL
+     * Imgbox Results - Renamed from Thumbnail* to ContactSheet*
+     * MTN-generated contact sheet (small)
      */
-    "thumbnailUrl": string;
+    "contactSheetUrlIb": string;
 
     /**
-     * Fastpic BBBig URL
+     * MTN-generated contact sheet (big)
      */
-    "thumbnailBigUrl": string;
+    "contactSheetBigUrlIb": string;
 
     /**
-     * Imgbox URLs
-     * Imgbox BBThumb URLs
+     * Individual screenshots (small)
      */
-    "screenshotUrlsIB": string[];
+    "screenshotUrlsIb": string[];
 
     /**
-     * Imgbox BBBig URLs
+     * Individual screenshots (big)
      */
-    "screenshotBigUrlsIB": string[];
-
-    /**
-     * Imgbox BBThumb URL
-     */
-    "thumbnailUrlIB": string;
-
-    /**
-     * Imgbox BBBig URL
-     */
-    "thumbnailBigUrlIB": string;
+    "screenshotBigUrlsIb": string[];
     "params": { [_: string]: string };
 
     /**
@@ -219,6 +219,12 @@ export class Movie {
         if (!("audioCodec" in $$source)) {
             this["audioCodec"] = "";
         }
+        if (!("contactSheetUrl" in $$source)) {
+            this["contactSheetUrl"] = "";
+        }
+        if (!("contactSheetBigUrl" in $$source)) {
+            this["contactSheetBigUrl"] = "";
+        }
         if (!("screenshotUrls" in $$source)) {
             this["screenshotUrls"] = [];
         }
@@ -228,23 +234,17 @@ export class Movie {
         if (!("screenshotAlbum" in $$source)) {
             this["screenshotAlbum"] = "";
         }
-        if (!("thumbnailUrl" in $$source)) {
-            this["thumbnailUrl"] = "";
+        if (!("contactSheetUrlIb" in $$source)) {
+            this["contactSheetUrlIb"] = "";
         }
-        if (!("thumbnailBigUrl" in $$source)) {
-            this["thumbnailBigUrl"] = "";
+        if (!("contactSheetBigUrlIb" in $$source)) {
+            this["contactSheetBigUrlIb"] = "";
         }
-        if (!("screenshotUrlsIB" in $$source)) {
-            this["screenshotUrlsIB"] = [];
+        if (!("screenshotUrlsIb" in $$source)) {
+            this["screenshotUrlsIb"] = [];
         }
-        if (!("screenshotBigUrlsIB" in $$source)) {
-            this["screenshotBigUrlsIB"] = [];
-        }
-        if (!("thumbnailUrlIB" in $$source)) {
-            this["thumbnailUrlIB"] = "";
-        }
-        if (!("thumbnailBigUrlIB" in $$source)) {
-            this["thumbnailBigUrlIB"] = "";
+        if (!("screenshotBigUrlsIb" in $$source)) {
+            this["screenshotBigUrlsIb"] = [];
         }
         if (!("params" in $$source)) {
             this["params"] = {};
@@ -260,24 +260,24 @@ export class Movie {
      * Creates a new Movie instance from a string or object.
      */
     static createFrom($$source: any = {}): Movie {
-        const $$createField13_0 = $$createType2;
-        const $$createField14_0 = $$createType2;
-        const $$createField18_0 = $$createType2;
-        const $$createField19_0 = $$createType2;
+        const $$createField15_0 = $$createType2;
+        const $$createField16_0 = $$createType2;
+        const $$createField20_0 = $$createType2;
+        const $$createField21_0 = $$createType2;
         const $$createField22_0 = $$createType3;
         const $$createField25_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
-            $$parsedSource["screenshotUrls"] = $$createField13_0($$parsedSource["screenshotUrls"]);
+            $$parsedSource["screenshotUrls"] = $$createField15_0($$parsedSource["screenshotUrls"]);
         }
         if ("screenshotBigUrls" in $$parsedSource) {
-            $$parsedSource["screenshotBigUrls"] = $$createField14_0($$parsedSource["screenshotBigUrls"]);
+            $$parsedSource["screenshotBigUrls"] = $$createField16_0($$parsedSource["screenshotBigUrls"]);
         }
-        if ("screenshotUrlsIB" in $$parsedSource) {
-            $$parsedSource["screenshotUrlsIB"] = $$createField18_0($$parsedSource["screenshotUrlsIB"]);
+        if ("screenshotUrlsIb" in $$parsedSource) {
+            $$parsedSource["screenshotUrlsIb"] = $$createField20_0($$parsedSource["screenshotUrlsIb"]);
         }
-        if ("screenshotBigUrlsIB" in $$parsedSource) {
-            $$parsedSource["screenshotBigUrlsIB"] = $$createField19_0($$parsedSource["screenshotBigUrlsIB"]);
+        if ("screenshotBigUrlsIb" in $$parsedSource) {
+            $$parsedSource["screenshotBigUrlsIb"] = $$createField21_0($$parsedSource["screenshotBigUrlsIb"]);
         }
         if ("params" in $$parsedSource) {
             $$parsedSource["params"] = $$createField22_0($$parsedSource["params"]);
