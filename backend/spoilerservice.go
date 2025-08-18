@@ -124,7 +124,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for fastpic hosting suffix
-	if strings.Contains(template, "_FP") {
+	if strings.Contains(template, "_FP_") || strings.Contains(template, "_FP%") {
 		req.NeedsFastpic = true
 		if needsContactSheet {
 			req.FastpicContactSheet = true
@@ -135,7 +135,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for imgbox hosting suffix
-	if strings.Contains(template, "_IB") {
+	if strings.Contains(template, "_IB_") || strings.Contains(template, "_IB%") {
 		req.NeedsImgbox = true
 		if needsContactSheet {
 			req.ImgboxContactSheet = true
@@ -146,7 +146,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for hamster hosting suffix
-	if strings.Contains(template, "_HAM") {
+	if strings.Contains(template, "_HAM_") || strings.Contains(template, "_HAM%") {
 		req.NeedsHamster = true
 		if needsContactSheet {
 			req.HamsterContactSheet = true
