@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
 	"log"
@@ -12,10 +11,8 @@ import (
 	"regexp"
 	"sort"
 	"spoilr/backend/img_uploaders"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -114,38 +111,35 @@ Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	req := UploaderRequirements{}
 
-	// Check for fastpic parameters
-	if strings.Contains(s.template, "%CONTACT_SHEET_FP%") {
-		req.NeedsFastpic = true
-		req.FastpicContactSheet = true
-	}
-	if strings.Contains(s.template, "%SCREENSHOTS_FP%") || strings.Contains(s.template, "%SCREENSHOTS_FP_SPACED%") {
-		req.NeedsFastpic = true
-		req.FastpicScreenshots = true
+	// Check what types of content are needed first
+	needsContactSheet := strings.Contains(s.template, "CONTACT_SHEET")
+	needsScreenshots := strings.Contains(s.template, "SCREENSHOTS")
+
+	// Early return if no image content is needed
+	if !needsContactSheet && !needsScreenshots {
+		return req
 	}
 
-	// Check for imgbox parameters
-	if strings.Contains(s.template, "%CONTACT_SHEET_IB%") {
-		req.NeedsImgbox = true
-		req.ImgboxContactSheet = true
-	}
-	if strings.Contains(s.template, "%SCREENSHOTS_IB%") || strings.Contains(s.template, "%SCREENSHOTS_IB_SPACED%") {
-		req.NeedsImgbox = true
-		req.ImgboxScreenshots = true
+	// Check for fastpic hosting suffix
+	if strings.Contains(s.template, "_FP%") {
+		req.NeedsFastpic = true
+		if needsContactSheet {
+			req.FastpicContactSheet = true
+		}
+		if needsScreenshots {
+			req.FastpicScreenshots = true
+		}
 	}
 
-	// Legacy support - treat old parameters as fastpic
-	if strings.Contains(s.template, "%THUMBNAIL_FP%") || strings.Contains(s.template, "%THUMBNAIL%") {
-		req.NeedsFastpic = true
-		req.FastpicContactSheet = true
-	}
-	if strings.Contains(s.template, "%THUMBNAIL_IB%") {
+	// Check for imgbox hosting suffix
+	if strings.Contains(s.template, "_IB%") {
 		req.NeedsImgbox = true
-		req.ImgboxContactSheet = true
-	}
-	if strings.Contains(s.template, "%SCREENSHOTS%") || strings.Contains(s.template, "%SCREENSHOTS_SPACED%") {
-		req.NeedsFastpic = true
-		req.FastpicScreenshots = true
+		if needsContactSheet {
+			req.ImgboxContactSheet = true
+		}
+		if needsScreenshots {
+			req.ImgboxScreenshots = true
+		}
 	}
 
 	return req
@@ -168,123 +162,6 @@ func (s *SpoilerService) getMovieByID(id string) (Movie, bool) {
 		}
 	}
 	return Movie{}, false
-}
-
-func (s *SpoilerService) extractMediaInfo(movie *Movie, mediaInfo MediaInfo) {
-	// Extract basic info
-	if duration, ok := mediaInfo.General["duration"]; ok {
-		if dur, err := strconv.ParseFloat(duration, 64); err == nil {
-			movie.Duration = formatDuration(time.Duration(dur * float64(time.Second)))
-		}
-	}
-
-	if width, ok := mediaInfo.Video["width"]; ok {
-		movie.Width = width
-	}
-
-	if height, ok := mediaInfo.Video["height"]; ok {
-		movie.Height = height
-	}
-
-	// Extract bitrates
-	if bitRate, ok := mediaInfo.Video["bit_rate"]; ok && bitRate != "" {
-		movie.VideoBitRate = formatBitRate(bitRate)
-	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
-		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
-			estimatedVideoBitRate := overall * 0.8
-			movie.VideoBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedVideoBitRate))
-		}
-	}
-
-	if bitRate, ok := mediaInfo.Audio["bit_rate"]; ok && bitRate != "" {
-		movie.AudioBitRate = formatBitRate(bitRate)
-	} else if overallBitRateStr, ok := mediaInfo.General["bit_rate"]; ok && overallBitRateStr != "" {
-		if overall, err := strconv.ParseFloat(overallBitRateStr, 64); err == nil {
-			estimatedAudioBitRate := overall * 0.1
-			movie.AudioBitRate = formatBitRate(fmt.Sprintf("%.0f", estimatedAudioBitRate))
-		}
-	}
-
-	if codec, ok := mediaInfo.Video["codec_name"]; ok {
-		movie.VideoCodec = codec
-	}
-
-	if codec, ok := mediaInfo.Audio["codec_name"]; ok {
-		movie.AudioCodec = codec
-	}
-
-	if overallBitRate, ok := mediaInfo.General["bit_rate"]; ok {
-		movie.BitRate = formatBitRate(overallBitRate)
-	}
-
-	// Store formatted video info
-	if rFrameRate, ok := mediaInfo.Video["r_frame_rate"]; ok {
-		movie.Params["%VIDEO_FPS_FRACTIONAL%"] = rFrameRate
-	}
-	if fpsDecimal, ok := mediaInfo.Video["fps_decimal"]; ok {
-		movie.Params["%VIDEO_FPS%"] = fpsDecimal
-	}
-
-	// Store formatted audio info
-	if sampleRate, ok := mediaInfo.Audio["sample_rate"]; ok {
-		movie.Params["%AUDIO_SAMPLE_RATE%"] = formatSampleRate(sampleRate)
-	}
-	if channels, ok := mediaInfo.Audio["channels"]; ok {
-		movie.Params["%AUDIO_CHANNELS%"] = formatChannels(channels)
-	}
-
-	// Store all raw parameters
-	for key, value := range mediaInfo.General {
-		movie.Params[fmt.Sprintf("%%General@%s%%", key)] = value
-	}
-
-	for key, value := range mediaInfo.Video {
-		movie.Params[fmt.Sprintf("%%Video@%s%%", key)] = value
-	}
-
-	for key, value := range mediaInfo.Audio {
-		movie.Params[fmt.Sprintf("%%Audio@%s%%", key)] = value
-	}
-}
-
-func formatSampleRate(sampleRateStr string) string {
-	if sampleRateStr == "" {
-		return ""
-	}
-
-	sampleRate, err := strconv.ParseFloat(sampleRateStr, 64)
-	if err != nil {
-		return sampleRateStr
-	}
-
-	if sampleRate >= 1000 {
-		return fmt.Sprintf("%.1f kHz", sampleRate/1000)
-	}
-	return fmt.Sprintf("%.0f Hz", sampleRate)
-}
-
-func formatChannels(channelsStr string) string {
-	if channelsStr == "" {
-		return ""
-	}
-
-	channels, err := strconv.Atoi(channelsStr)
-	if err != nil {
-		return channelsStr
-	}
-
-	switch channels {
-	case 1:
-		return "1 channel (mono)"
-	case 2:
-		return "2 channels (stereo)"
-	case 6:
-		return "6 channels (5.1)"
-	case 8:
-		return "8 channels (7.1)"
-	default:
-		return fmt.Sprintf("%d channels", channels)
-	}
 }
 
 func (s *SpoilerService) AddMovies(filePaths []string) error {
@@ -310,7 +187,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 			ID:               uuid.New().String(),
 			FileName:         filepath.Base(path),
 			FilePath:         path,
-			FileSize:         formatFileSize(fileInfo.Size()),
+			FileSize:         FormatFileSize(fileInfo.Size()),
 			FileSizeBytes:    fileInfo.Size(),
 			Params:           make(map[string]string),
 			ScreenshotURLs:   make([]string, 0),
@@ -338,7 +215,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 				return
 			}
 
-			mediaInfo, isVideo, err := s.getVideoMediaInfo(movie.FilePath)
+			mediaInfo, isVideo, err := GetVideoMediaInfo(movie.FilePath)
 
 			mu.Lock()
 			defer mu.Unlock()
@@ -359,7 +236,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 			} else {
 				// Update video file with media info
 				s.updateMovieByID(id, func(m *Movie) {
-					s.extractMediaInfo(m, mediaInfo)
+					ExtractMediaInfo(m, mediaInfo)
 					m.ProcessingState = StatePending
 				})
 				validMovieIDs = append(validMovieIDs, id)
@@ -374,158 +251,6 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 
 	log.Printf("Added %d video files out of %d total files", len(validMovieIDs), len(expandedPaths))
 	return nil
-}
-
-// Combined function to check if file is video AND get media info in one ffprobe call
-func (s *SpoilerService) getVideoMediaInfo(filePath string) (MediaInfo, bool, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "quiet",
-		"-print_format", "json",
-		"-show_format",
-		"-show_streams",
-		filePath,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		return MediaInfo{}, false, nil // Not a video file or ffprobe failed
-	}
-
-	var result struct {
-		Format struct {
-			Duration string            `json:"duration"`
-			Size     string            `json:"size"`
-			BitRate  string            `json:"bit_rate"`
-			Tags     map[string]string `json:"tags"`
-		} `json:"format"`
-		Streams []struct {
-			CodecType     string            `json:"codec_type"`
-			CodecName     string            `json:"codec_name"`
-			Width         int               `json:"width"`
-			Height        int               `json:"height"`
-			Duration      string            `json:"duration"`
-			BitRate       string            `json:"bit_rate"`
-			RFrameRate    string            `json:"r_frame_rate"`
-			AvgFrameRate  string            `json:"avg_frame_rate"`
-			SampleRate    string            `json:"sample_rate"`
-			Channels      int               `json:"channels"`
-			ChannelLayout string            `json:"channel_layout"`
-			Tags          map[string]string `json:"tags"`
-		} `json:"streams"`
-	}
-
-	if err := json.Unmarshal(output, &result); err != nil {
-		return MediaInfo{}, false, fmt.Errorf("failed to parse ffprobe output: %v", err)
-	}
-
-	// Check if it has video streams
-	hasVideo := false
-	for _, stream := range result.Streams {
-		if stream.CodecType == "video" {
-			hasVideo = true
-			break
-		}
-	}
-
-	if !hasVideo {
-		return MediaInfo{}, false, nil
-	}
-
-	// Build MediaInfo
-	mediaInfo := MediaInfo{
-		General: make(map[string]string),
-		Video:   make(map[string]string),
-		Audio:   make(map[string]string),
-	}
-
-	// General info
-	mediaInfo.General["duration"] = result.Format.Duration
-	mediaInfo.General["size"] = result.Format.Size
-	mediaInfo.General["bit_rate"] = result.Format.BitRate
-
-	// Process streams
-	for _, stream := range result.Streams {
-		switch stream.CodecType {
-		case "video":
-			mediaInfo.Video["codec_name"] = stream.CodecName
-			if stream.Width > 0 {
-				mediaInfo.Video["width"] = strconv.Itoa(stream.Width)
-			}
-			if stream.Height > 0 {
-				mediaInfo.Video["height"] = strconv.Itoa(stream.Height)
-			}
-			if stream.Duration != "" {
-				mediaInfo.Video["duration"] = stream.Duration
-			}
-			if stream.BitRate != "" {
-				mediaInfo.Video["bit_rate"] = stream.BitRate
-			}
-			if stream.BitRate == "" && stream.Tags != nil {
-				if br, ok := stream.Tags["BPS"]; ok {
-					mediaInfo.Video["bit_rate"] = br
-				}
-			}
-
-			// Extract framerate info
-			if stream.RFrameRate != "" {
-				mediaInfo.Video["r_frame_rate"] = stream.RFrameRate
-				// Convert to decimal
-				if fps := parseFrameRate(stream.RFrameRate); fps > 0 {
-					mediaInfo.Video["fps_decimal"] = fmt.Sprintf("%.3f", fps)
-				}
-			}
-			if stream.AvgFrameRate != "" {
-				mediaInfo.Video["avg_frame_rate"] = stream.AvgFrameRate
-			}
-
-		case "audio":
-			mediaInfo.Audio["codec_name"] = stream.CodecName
-			if stream.Duration != "" {
-				mediaInfo.Audio["duration"] = stream.Duration
-			}
-			if stream.BitRate != "" {
-				mediaInfo.Audio["bit_rate"] = stream.BitRate
-			}
-			if stream.BitRate == "" && stream.Tags != nil {
-				if br, ok := stream.Tags["BPS"]; ok {
-					mediaInfo.Audio["bit_rate"] = br
-				}
-			}
-
-			// Extract audio-specific info
-			if stream.SampleRate != "" {
-				mediaInfo.Audio["sample_rate"] = stream.SampleRate
-			}
-			if stream.Channels > 0 {
-				mediaInfo.Audio["channels"] = strconv.Itoa(stream.Channels)
-			}
-			if stream.ChannelLayout != "" {
-				mediaInfo.Audio["channel_layout"] = stream.ChannelLayout
-			}
-		}
-	}
-
-	return mediaInfo, true, nil
-}
-
-func parseFrameRate(frameRate string) float64 {
-	if frameRate == "" || frameRate == "0/0" {
-		return 0
-	}
-
-	parts := strings.Split(frameRate, "/")
-	if len(parts) != 2 {
-		return 0
-	}
-
-	numerator, err1 := strconv.ParseFloat(parts[0], 64)
-	denominator, err2 := strconv.ParseFloat(parts[1], 64)
-
-	if err1 != nil || err2 != nil || denominator == 0 {
-		return 0
-	}
-
-	return numerator / denominator
 }
 
 func (s *SpoilerService) RemoveMovie(id string) {
@@ -731,19 +456,8 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 		return
 	}
 
-	// Get video duration
-	duration, err := s.getVideoDuration(movie.FilePath)
-	if err != nil {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateError
-			m.ProcessingError = fmt.Sprintf("Failed to get duration: %v", err)
-		})
-		s.emitState()
-		return
-	}
-
 	// Generate media with proper concurrency limits
-	contactSheetPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, duration, requirements)
+	contactSheetPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -806,11 +520,10 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 }
 
 // Generate contact sheet and screenshots with proper concurrency control
-func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, duration float64, requirements UploaderRequirements) (string, []string, error) {
+func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, requirements UploaderRequirements) (string, []string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var generationStarted bool // Track if any generation has actually started
-
+	var generationStarted bool
 	var contactSheetPath string
 	var screenshotPaths []string
 	var screenshotErrors []error
@@ -863,7 +576,7 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 		screenshotPaths = make([]string, s.settings.ScreenshotCount)
 		screenshotErrors = make([]error, s.settings.ScreenshotCount)
 
-		interval := duration / float64(s.settings.ScreenshotCount+1)
+		interval := movie.Duration / float64(s.settings.ScreenshotCount+1)
 
 		for i := 0; i < s.settings.ScreenshotCount; i++ {
 			wg.Add(1)
@@ -1202,30 +915,6 @@ func (s *SpoilerService) generateMovieContactSheet(videoPath, tempDir string) (s
 	return "", fmt.Errorf("contact sheet file not found after generation - no .jpg files in %s", tempDir)
 }
 
-func (s *SpoilerService) getVideoDuration(filePath string) (float64, error) {
-	cmd := exec.CommandContext(s.cancelCtx, "ffprobe",
-		"-v", "quiet",
-		"-show_entries", "format=duration",
-		"-of", "csv=p=0",
-		filePath,
-	)
-
-	output, err := cmd.Output()
-	if err != nil {
-		if s.cancelCtx.Err() != nil {
-			return 0, fmt.Errorf("duration check cancelled: %v", s.cancelCtx.Err())
-		}
-		return 0, fmt.Errorf("ffprobe command failed: %v", err)
-	}
-
-	duration, err := strconv.ParseFloat(strings.TrimSpace(string(output)), 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse duration: %v", err)
-	}
-
-	return duration, nil
-}
-
 func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timestamp float64) error {
 	cmd := exec.CommandContext(s.cancelCtx, "ffmpeg",
 		"-ss", fmt.Sprintf("%.2f", timestamp),
@@ -1320,7 +1009,7 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	// Replace basic placeholders
 	tmp = strings.ReplaceAll(tmp, "%FILE_NAME%", movie.FileName)
 	tmp = strings.ReplaceAll(tmp, "%FILE_SIZE%", movie.FileSize)
-	tmp = strings.ReplaceAll(tmp, "%DURATION%", movie.Duration)
+	tmp = strings.ReplaceAll(tmp, "%DURATION%", movie.DurationFormatted)
 	tmp = strings.ReplaceAll(tmp, "%WIDTH%", movie.Width)
 	tmp = strings.ReplaceAll(tmp, "%HEIGHT%", movie.Height)
 	tmp = strings.ReplaceAll(tmp, "%BIT_RATE%", movie.BitRate)
@@ -1332,45 +1021,29 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	// Handle fastpic contact sheets
 	if movie.ContactSheetURL != "" {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", movie.ContactSheetURL)
-		// Legacy support - keep old template variables for backward compatibility
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", movie.ContactSheetURL)
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", movie.ContactSheetURL)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL%", "")
 	}
 
 	// Handle fastpic contact sheet big
 	if movie.ContactSheetBigURL != "" {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", movie.ContactSheetBigURL)
-		// Legacy support
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", movie.ContactSheetBigURL)
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", movie.ContactSheetBigURL)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_FP_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_BIG%", "")
 	}
 
 	// Handle imgbox contact sheets
 	if movie.ContactSheetURLIB != "" {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", movie.ContactSheetURLIB)
-		// Legacy support
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", movie.ContactSheetURLIB)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB%", "")
 	}
 
 	// Handle imgbox contact sheet big
 	if movie.ContactSheetBigURLIB != "" {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", movie.ContactSheetBigURLIB)
-		// Legacy support
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", movie.ContactSheetBigURLIB)
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%THUMBNAIL_IB_BIG%", "")
 	}
 
 	// Handle fastpic screenshots (BBThumb) with newline separator
@@ -1383,17 +1056,13 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	if len(fastpicScreenshots) > 0 {
 		screenshotsStr := strings.Join(fastpicScreenshots, "\n")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", screenshotsStr)
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", screenshotsStr) // Legacy support
 
 		// Handle screenshots with space separator
 		screenshotsSpaced := strings.Join(fastpicScreenshots, " ")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", screenshotsSpaced)
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", screenshotsSpaced) // Legacy support
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS%", "") // Legacy support
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_SPACED%", "") // Legacy support
 	}
 
 	// Handle fastpic screenshots big (BBBig) with newline separator
@@ -1406,17 +1075,13 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	if len(fastpicScreenshotsBig) > 0 {
 		screenshotsBigStr := strings.Join(fastpicScreenshotsBig, "\n")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", screenshotsBigStr)
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", screenshotsBigStr) // Legacy support
 
 		// Handle screenshots big with space separator
 		screenshotsBigSpaced := strings.Join(fastpicScreenshotsBig, " ")
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", screenshotsBigSpaced)
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", screenshotsBigSpaced) // Legacy support
 	} else {
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG%", "") // Legacy support
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_BIG_SPACED%", "") // Legacy support
 	}
 
 	// Handle imgbox screenshots (BBThumb) with newline separator
@@ -1547,46 +1212,4 @@ func (s *SpoilerService) SetTemplate(template string) {
 	if err := s.configManager.UpdateConfig(config); err != nil {
 		log.Printf("Failed to save template: %v", err)
 	}
-}
-
-// Helper functions
-func formatDuration(d time.Duration) string {
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	s := int(d.Seconds()) % 60
-
-	if h > 0 {
-		return fmt.Sprintf("%d:%02d:%02d", h, m, s)
-	}
-	return fmt.Sprintf("%d:%02d", m, s)
-}
-
-func formatBitRate(bitRateStr string) string {
-	if bitRateStr == "" {
-		return ""
-	}
-
-	bitRate, err := strconv.ParseFloat(bitRateStr, 64)
-	if err != nil {
-		return bitRateStr
-	}
-
-	kbps := bitRate / 1000
-	if kbps >= 1000 {
-		return fmt.Sprintf("%.1f Mbps", kbps/1000)
-	}
-	return fmt.Sprintf("%.0f kbps", kbps)
-}
-
-func formatFileSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

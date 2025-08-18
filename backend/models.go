@@ -2,19 +2,20 @@ package backend
 
 // Movie represents a media file with its metadata
 type Movie struct {
-	ID            string `json:"id"`
-	FileName      string `json:"fileName"`
-	FilePath      string `json:"filePath"`
-	FileSize      string `json:"fileSize"`
-	FileSizeBytes int64  `json:"fileSizeBytes"`
-	Duration      string `json:"duration"`
-	Width         string `json:"width"`
-	Height        string `json:"height"`
-	BitRate       string `json:"bitRate"`
-	VideoBitRate  string `json:"videoBitRate"`
-	AudioBitRate  string `json:"audioBitRate"`
-	VideoCodec    string `json:"videoCodec"`
-	AudioCodec    string `json:"audioCodec"`
+	ID                string  `json:"id"`
+	FileName          string  `json:"fileName"`
+	FilePath          string  `json:"filePath"`
+	FileSize          string  `json:"fileSize"`
+	FileSizeBytes     int64   `json:"fileSizeBytes"`
+	DurationFormatted string  `json:"duration"`
+	Duration          float64 `json:"videDduration"` // for screenshot generation
+	Width             string  `json:"width"`
+	Height            string  `json:"height"`
+	BitRate           string  `json:"bitRate"`
+	VideoBitRate      string  `json:"videoBitRate"`
+	AudioBitRate      string  `json:"audioBitRate"`
+	VideoCodec        string  `json:"videoCodec"`
+	AudioCodec        string  `json:"audioCodec"`
 
 	// Fastpic URLs
 	ContactSheetURL    string   `json:"contactSheetUrl"`    // MTN-generated contact sheet (small)

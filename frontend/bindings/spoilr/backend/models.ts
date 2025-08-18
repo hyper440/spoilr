@@ -107,6 +107,11 @@ export class Movie {
     "fileSize": string;
     "fileSizeBytes": number;
     "duration": string;
+
+    /**
+     * for screenshot generation
+     */
+    "videDduration": number;
     "width": string;
     "height": string;
     "bitRate": string;
@@ -198,6 +203,9 @@ export class Movie {
         if (!("duration" in $$source)) {
             this["duration"] = "";
         }
+        if (!("videDduration" in $$source)) {
+            this["videDduration"] = 0;
+        }
         if (!("width" in $$source)) {
             this["width"] = "";
         }
@@ -260,30 +268,30 @@ export class Movie {
      * Creates a new Movie instance from a string or object.
      */
     static createFrom($$source: any = {}): Movie {
-        const $$createField15_0 = $$createType2;
         const $$createField16_0 = $$createType2;
-        const $$createField20_0 = $$createType2;
+        const $$createField17_0 = $$createType2;
         const $$createField21_0 = $$createType2;
-        const $$createField22_0 = $$createType3;
-        const $$createField25_0 = $$createType2;
+        const $$createField22_0 = $$createType2;
+        const $$createField23_0 = $$createType3;
+        const $$createField26_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
-            $$parsedSource["screenshotUrls"] = $$createField15_0($$parsedSource["screenshotUrls"]);
+            $$parsedSource["screenshotUrls"] = $$createField16_0($$parsedSource["screenshotUrls"]);
         }
         if ("screenshotBigUrls" in $$parsedSource) {
-            $$parsedSource["screenshotBigUrls"] = $$createField16_0($$parsedSource["screenshotBigUrls"]);
+            $$parsedSource["screenshotBigUrls"] = $$createField17_0($$parsedSource["screenshotBigUrls"]);
         }
         if ("screenshotUrlsIb" in $$parsedSource) {
-            $$parsedSource["screenshotUrlsIb"] = $$createField20_0($$parsedSource["screenshotUrlsIb"]);
+            $$parsedSource["screenshotUrlsIb"] = $$createField21_0($$parsedSource["screenshotUrlsIb"]);
         }
         if ("screenshotBigUrlsIb" in $$parsedSource) {
-            $$parsedSource["screenshotBigUrlsIb"] = $$createField21_0($$parsedSource["screenshotBigUrlsIb"]);
+            $$parsedSource["screenshotBigUrlsIb"] = $$createField22_0($$parsedSource["screenshotBigUrlsIb"]);
         }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField22_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField23_0($$parsedSource["params"]);
         }
         if ("errors" in $$parsedSource) {
-            $$parsedSource["errors"] = $$createField25_0($$parsedSource["errors"]);
+            $$parsedSource["errors"] = $$createField26_0($$parsedSource["errors"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }
