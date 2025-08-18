@@ -466,7 +466,17 @@ func (s *SpoilerService) initializeUploaderServices(requirements UploaderRequire
 
 	if requirements.NeedsHamster {
 		services.Hamster = img_uploaders.NewHamsterService(s.settings.HamsterEmail, s.settings.HamsterPassword)
-		log.Printf("Hamster service initialized")
+		err := services.Hamster.Login(s.cancelCtx)
+		if err != nil {
+			err = fmt.Errorf("failed to log in hamster: %v", err)
+			s.app.Event.Emit("error", map[string]string{
+				"message": err.Error(),
+			})
+
+		} else {
+			log.Printf("Hamster service initialized")
+		}
+
 	}
 
 	return services, nil

@@ -83,7 +83,7 @@ func (h *HamsterService) extractAuthToken(htmlContent string) (string, error) {
 }
 
 // login performs authentication with hamster.is
-func (h *HamsterService) login(ctx context.Context) error {
+func (h *HamsterService) Login(ctx context.Context) error {
 	if h.loggedIn {
 		return nil
 	}
@@ -239,7 +239,7 @@ func (h *HamsterService) uploadToHamster(ctx context.Context, filePath, fileName
 	log.Printf("Starting upload of %s to hamster.is...", fileName)
 
 	if !h.loggedIn {
-		if err := h.login(ctx); err != nil {
+		if err := h.Login(ctx); err != nil {
 			return nil, fmt.Errorf("failed to login: %v", err)
 		}
 	}

@@ -187,6 +187,7 @@ func TestHamsterService_InvalidFile(t *testing.T) {
 
 	service := img_uploaders.NewHamsterService(email, password)
 	ctx := context.Background()
+	service.Login(ctx)
 
 	// Test non-existent file
 	_, err := service.UploadImage(ctx, "/non/existent/file.png")
