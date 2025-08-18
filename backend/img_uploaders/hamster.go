@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -133,49 +134,37 @@ func (h *HamsterService) login(ctx context.Context) error {
 	h.authToken = authToken
 	log.Printf("Extracted auth token: %s", authToken[:10]+"...")
 
-	// Step 2: Login with credentials
-	var loginBuffer bytes.Buffer
-	loginWriter := multipart.NewWriter(&loginBuffer)
+	// Step 2: Login with credentials using proper URL encoding
+	formData := url.Values{}
+	formData.Set("login-subject", h.email)
+	formData.Set("password", h.password)
+	formData.Set("auth_token", h.authToken)
 
-	loginData := map[string]string{
-		"login-subject": h.email,
-		"password":      h.password,
-		"auth_token":    h.authToken,
-	}
-
-	for key, value := range loginData {
-		if err := loginWriter.WriteField(key, value); err != nil {
-			return fmt.Errorf("failed to write login field %s: %v", key, err)
-		}
-	}
-	loginWriter.Close()
-
-	loginReq, err := http.NewRequest(http.MethodPost, "https://hamster.is/login", &loginBuffer)
+	loginReq, err := http.NewRequest(http.MethodPost, "https://hamster.is/login", bytes.NewBufferString(formData.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create login request: %v", err)
 	}
 
 	loginReq.Header = http.Header{
-		"content-type": {"application/x-www-form-urlencoded"},
-		"user-agent":   {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"},
-		"accept":       {"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"},
-		"origin":       {"https://hamster.is"},
-		"referer":      {"https://hamster.is/"},
+		"accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"},
+		"accept-encoding": {"gzip, deflate, br, zstd"},
+		"content-type":    {"application/x-www-form-urlencoded"},
+		"connection":      {"keep-alive"},
+		"origin":          {"https://hamster.is"},
+		"referer":         {"https://hamster.is/"},
+		"user-agent":      {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"},
 		http.HeaderOrderKey: {
 			"accept",
+			"accept-encoding",
 			"content-type",
+			"connection",
 			"origin",
 			"referer",
 			"user-agent",
 		},
 	}
 
-	// Convert multipart data to URL-encoded for login
-	loginFormData := fmt.Sprintf("login-subject=%s&password=%s&auth_token=%s",
-		h.email, h.password, h.authToken)
-	loginReq.Body = io.NopCloser(bytes.NewBufferString(loginFormData))
-	loginReq.Header.Set("content-type", "application/x-www-form-urlencoded")
-
+	// Note: Python code uses allow_redirects=True, so we should handle redirects
 	loginResp, err := h.client.Do(loginReq)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -185,18 +174,54 @@ func (h *HamsterService) login(ctx context.Context) error {
 	}
 	defer loginResp.Body.Close()
 
-	// Check for KEEP_LOGIN cookie to confirm successful login
+	// Handle redirects manually if needed (check if it's a 3xx response)
+	if loginResp.StatusCode >= 300 && loginResp.StatusCode < 400 {
+		location := loginResp.Header.Get("Location")
+		log.Printf("Login returned redirect %d to: %s", loginResp.StatusCode, location)
+
+		if location != "" {
+			// Follow the redirect
+			redirectReq, err := http.NewRequest(http.MethodGet, location, nil)
+			if err != nil {
+				return fmt.Errorf("failed to create redirect request: %v", err)
+			}
+
+			// Copy headers from original request (except method-specific ones)
+			redirectReq.Header.Set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
+			redirectReq.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
+			redirectReq.Header.Set("referer", "https://hamster.is/login")
+
+			loginResp.Body.Close() // Close the redirect response
+			loginResp, err = h.client.Do(redirectReq)
+			if err != nil {
+				return fmt.Errorf("failed to follow redirect: %v", err)
+			}
+			defer loginResp.Body.Close()
+		}
+	}
+
+	// Debug: Print login response status
+	log.Printf("Login response status: %d", loginResp.StatusCode)
+
+	// Check for KEEP_LOGIN cookie in the client's cookie jar (not just the response)
+	// The cookie gets stored in the session during redirects
+	hamsterURL, _ := url.Parse("https://hamster.is/")
+	cookies := h.client.GetCookieJar().Cookies(hamsterURL)
+
+	log.Printf("Cookies in session for hamster.is:")
 	keepLoginFound := false
-	for _, cookie := range loginResp.Cookies() {
-		if cookie.Name == "KEEP_LOGIN" && cookie.Value != "" {
+	for _, cookie := range cookies {
+		log.Printf("Session Cookie: %s = %s", cookie.Name, cookie.Value)
+		if cookie.Name == "KEEP_LOGIN" {
 			keepLoginFound = true
-			break
+			log.Printf("Found KEEP_LOGIN cookie in session!")
 		}
 	}
 
 	if !keepLoginFound {
 		loginBody, _ := io.ReadAll(loginResp.Body)
-		return fmt.Errorf("login failed: status %d - %s", loginResp.StatusCode, string(loginBody))
+		return fmt.Errorf("login failed: status %d - KEEP_LOGIN cookie not found in session. Response: %s",
+			loginResp.StatusCode, string(loginBody))
 	}
 
 	log.Printf("Login successful!")
@@ -287,12 +312,12 @@ func (h *HamsterService) uploadToHamster(ctx context.Context, filePath, fileName
 	req.Header = http.Header{
 		"accept":         {"application/json"},
 		"content-type":   {writer.FormDataContentType()},
+		"origin":         {"https://hamster.is"},
+		"referer":        {"https://hamster.is/"},
 		"sec-fetch-dest": {"empty"},
 		"sec-fetch-mode": {"cors"},
 		"sec-fetch-site": {"same-origin"},
 		"user-agent":     {"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"},
-		"origin":         {"https://hamster.is"},
-		"referer":        {"https://hamster.is/"},
 		http.HeaderOrderKey: {
 			"accept",
 			"content-type",
