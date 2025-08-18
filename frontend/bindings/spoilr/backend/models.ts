@@ -355,6 +355,38 @@ export class Movie {
     }
 }
 
+/**
+ * TemplatePreset represents a saved template configuration
+ */
+export class TemplatePreset {
+    "id": string;
+    "name": string;
+    "template": string;
+
+    /** Creates a new TemplatePreset instance. */
+    constructor($$source: Partial<TemplatePreset> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("template" in $$source)) {
+            this["template"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TemplatePreset instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TemplatePreset {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new TemplatePreset($$parsedSource as Partial<TemplatePreset>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = Movie.createFrom;
 const $$createType1 = $Create.Array($$createType0);

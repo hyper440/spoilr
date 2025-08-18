@@ -25,12 +25,20 @@ export function ClearMovies(): $CancellablePromise<void> {
     return $Call.ByID(2972937796);
 }
 
+export function DeleteTemplatePreset(presetID: string): $CancellablePromise<void> {
+    return $Call.ByID(1652538498, presetID);
+}
+
 export function GenerateResult(): $CancellablePromise<string> {
     return $Call.ByID(2136589038);
 }
 
 export function GenerateResultForMovie(movieID: string): $CancellablePromise<string> {
     return $Call.ByID(3733019759, movieID);
+}
+
+export function GetCurrentPresetID(): $CancellablePromise<string> {
+    return $Call.ByID(1550454623);
 }
 
 export function GetDefaultTemplate(): $CancellablePromise<string> {
@@ -65,6 +73,12 @@ export function GetTemplate(): $CancellablePromise<string> {
     return $Call.ByID(2486279326);
 }
 
+export function GetTemplatePresets(): $CancellablePromise<$models.TemplatePreset[]> {
+    return $Call.ByID(3598162938).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
 export function RemoveMovie(id: string): $CancellablePromise<void> {
     return $Call.ByID(2848711252, id);
 }
@@ -77,8 +91,18 @@ export function ResetMovieStatuses(): $CancellablePromise<void> {
     return $Call.ByID(1291166359);
 }
 
+export function SaveTemplatePreset(name: string, template: string): $CancellablePromise<$models.TemplatePreset> {
+    return $Call.ByID(1758640140, name, template).then(($result: any) => {
+        return $$createType3($result);
+    });
+}
+
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {
     return $Call.ByID(1525544291, app);
+}
+
+export function SetCurrentPreset(presetID: string): $CancellablePromise<void> {
+    return $Call.ByID(2103552966, presetID);
 }
 
 export function SetTemplate(template: string): $CancellablePromise<void> {
@@ -97,3 +121,5 @@ export function UpdateSettings(settings: $models.AppSettings): $CancellablePromi
 const $$createType0 = $Create.Array($Create.Any);
 const $$createType1 = $models.AppSettings.createFrom;
 const $$createType2 = $models.AppState.createFrom;
+const $$createType3 = $models.TemplatePreset.createFrom;
+const $$createType4 = $Create.Array($$createType3);

@@ -9,7 +9,9 @@
     "templateEditor": {
         "title": "Template Editor",
         "resetToDefault": "Reset to Default",
-        "saveTemplate": "Save",
+        "saveTemplate": "Save Edits",
+        "saveAsPreset": "Save As Preset",
+        "newPresetName": "Enter New Preset Name...",
         "placeholder": "Enter your template here...",
         "availableParameters": "Available parameters:",
         "parameters": {

@@ -25,9 +25,6 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
         <div className="grid grid-cols-2 gap-6">
           {/* Left Column - Screenshot Settings */}
           <div className="space-y-4">
-            <h4 className="font-medium text-base">{t("settings.title")}</h4>
-            <Separator />
-
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
@@ -94,9 +91,6 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
 
           {/* Right Column - Service Settings */}
           <div className="space-y-4">
-            <h4 className="font-medium text-base opacity-0">{t("settings.title")}</h4>
-            <Separator />
-
             <div className="space-y-4">
               {/* Fastpic Settings */}
               <div className="space-y-2">

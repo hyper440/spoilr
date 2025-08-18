@@ -7,7 +7,9 @@ import { toast } from "sonner";
 
 import DropZone from "./components/DropZone";
 import MovieTable from "./components/MovieTable";
-import Header from "./components/Header";
+import SettingsPopover from "./components/SettingsPopover";
+import TemplateEditor from "./components/TemplateEditorPopover";
+import AnimatedText from "@/components/AnimatedText";
 
 function AppContent() {
   const { t } = useTranslation();
@@ -167,13 +169,16 @@ function AppContent() {
       bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]"
     >
       <div className="h-full self-center p-2backdrop-blur-xl bg-white/2 p-6 shadow-2xl">
-        <Header
-          template={template}
-          onTemplateChange={saveTemplate}
-          onResetTemplate={resetTemplateToDefault}
-          settings={settings}
-          onUpdateSettings={updateSettings}
-        />
+        {/* Integrated Header */}
+        <div className="wails-drag flex items-center justify-between mb-6">
+          <a data-wml-openurl="https://github.com/hyper440/spoilr" className="cursor-pointer">
+            <AnimatedText>Spoilr</AnimatedText>
+          </a>
+          <div className="wails-no-drag flex items-center gap-10">
+            <TemplateEditor template={template} onTemplateChange={saveTemplate} onResetTemplate={resetTemplateToDefault} />
+            <SettingsPopover settings={settings} onUpdateSettings={updateSettings} />
+          </div>
+        </div>
 
         {!hasMovies ? (
           <DropZone />

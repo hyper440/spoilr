@@ -3,15 +3,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RotateCcw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { RotateCcw, Save, X, Plus } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "@/contexts/LanguageContext";
+import { SpoilerService } from "@bindings/spoilr/backend";
 import AnimatedText from "@/components/AnimatedText";
 
 interface TemplateEditorProps {
   template: string;
   onTemplateChange: (template: string) => void;
-  onResetToDefault: () => void;
+  onResetTemplate: () => void;
 }
 
 interface TemplateParam {
@@ -20,15 +24,41 @@ interface TemplateParam {
   category?: string;
 }
 
-export default function TemplateEditor({ template, onTemplateChange, onResetToDefault }: TemplateEditorProps) {
+interface TemplatePreset {
+  id: string;
+  name: string;
+  template: string;
+}
+
+export default function TemplateEditor({ template, onTemplateChange, onResetTemplate }: TemplateEditorProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState(template);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const [presets, setPresets] = useState<TemplatePreset[]>([]);
+  const [currentPresetId, setCurrentPresetId] = useState<string>("");
+  const [newPresetName, setNewPresetName] = useState("");
+  const [isSavingPreset, setIsSavingPreset] = useState(false);
+  const [showNewPreset, setShowNewPreset] = useState(false);
 
   useEffect(() => {
     setCurrentTemplate(template);
   }, [template]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPresets();
+    }
+  }, [isOpen]);
+
+  const loadPresets = async () => {
+    try {
+      const loadedPresets = await SpoilerService.GetTemplatePresets();
+      setPresets(loadedPresets);
+    } catch (error) {
+      console.error("Failed to load template presets:", error);
+    }
+  };
 
   const templateParams: TemplateParam[] = [
     // File Information
@@ -78,7 +108,6 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%SCREENSHOTS_HAM_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsHamBigSpaced"), category: "Hamster Screenshots" },
   ];
 
-  // Group parameters by category
   const groupedParams = templateParams.reduce((acc, param) => {
     const category = param.category || "Other";
     if (!acc[category]) {
@@ -88,23 +117,14 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     return acc;
   }, {} as Record<string, TemplateParam[]>);
 
-  // Define category order
-  const categoryOrder = [
-    "File Info",
-    "Video",
-    "Audio",
-    "Contact Sheets",
-    "Fastpic Screenshots",
-    "Imgbox Screenshots",
-    "Hamster Screenshots",
-    "Legacy",
-    "Other",
-  ];
+  const categoryOrder = ["File Info", "Video", "Audio", "Contact Sheets", "Fastpic Screenshots", "Imgbox Screenshots", "Hamster Screenshots"];
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
       setCurrentTemplate(template);
+      setNewPresetName("");
+      setShowNewPreset(false);
     }
   };
 
@@ -126,103 +146,195 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     setCursorPosition(target.selectionStart);
   };
 
-  const handleResetToDefault = () => {
-    onResetToDefault();
-  };
-
   const handleSaveTemplate = () => {
     onTemplateChange(currentTemplate);
     setIsOpen(false);
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "File Info":
-        return "bg-blue-100 text-blue-800 hover:bg-blue-200";
-      case "Video":
-        return "bg-green-100 text-green-800 hover:bg-green-200";
-      case "Audio":
-        return "bg-purple-100 text-purple-800 hover:bg-purple-200";
-      case "Contact Sheets":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
-      case "Fastpic Screenshots":
-        return "bg-orange-100 text-orange-800 hover:bg-orange-200";
-      case "Imgbox Screenshots":
-        return "bg-cyan-100 text-cyan-800 hover:bg-cyan-200";
-      case "Hamster Screenshots":
-        return "bg-pink-100 text-pink-800 hover:bg-pink-200";
-      case "Legacy":
-        return "bg-gray-100 text-gray-600 hover:bg-gray-200";
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-200";
+  const handlePresetClick = async (preset: TemplatePreset) => {
+    setCurrentTemplate(preset.template);
+    setCurrentPresetId(preset.id);
+    onTemplateChange(preset.template);
+  };
+
+  const handleSavePreset = async () => {
+    if (!newPresetName.trim()) return;
+
+    setIsSavingPreset(true);
+    try {
+      await SpoilerService.SaveTemplatePreset(newPresetName.trim(), currentTemplate);
+      await loadPresets(); // Reload presets from backend
+      setNewPresetName("");
+      setShowNewPreset(false);
+    } catch (error) {
+      console.error("Failed to save template preset:", error);
+    } finally {
+      setIsSavingPreset(false);
+    }
+  };
+
+  const handleDeletePreset = async (presetId: string) => {
+    try {
+      await SpoilerService.DeleteTemplatePreset(presetId);
+      await loadPresets(); // Reload presets from backend
+      if (presetId === currentPresetId) {
+        setCurrentPresetId("");
+      }
+    } catch (error) {
+      console.error("Failed to delete template preset:", error);
     }
   };
 
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-        <AnimatedText>{t("header.editTemplate")}</AnimatedText>
+        <AnimatedText>Edit Template</AnimatedText>
       </PopoverTrigger>
-      <PopoverContent className="w-[700px]" side="bottom" align="end">
+      <PopoverContent className="w-[800px] p-4" side="bottom" align="end">
         <div className="space-y-4">
+          {/* Header */}
           <div className="flex items-center justify-between">
-            <h4 className="font-medium text-base">{t("templateEditor.title")}</h4>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleResetToDefault} className="text-xs">
+              <h4 className="font-medium text-sm">Template Editor</h4>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Add Preset Toggle */}
+              {!showNewPreset ? (
+                <Button variant="outline" size="sm" onClick={() => setShowNewPreset(true)} className="h-8 px-2">
+                  <Plus className="w-3 h-3 mr-1" />
+                  Save as Preset
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="Preset name"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    className="h-6 text-xs w-45"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleSavePreset();
+                      } else if (e.key === "Escape") {
+                        setShowNewPreset(false);
+                        setNewPresetName("");
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <Button onClick={handleSavePreset} disabled={!newPresetName.trim() || isSavingPreset} size="sm" className="h-6 px-2 text-xs">
+                    <Save className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowNewPreset(false);
+                      setNewPresetName("");
+                    }}
+                    size="sm"
+                    className="h-6 px-1 text-xs"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+              <Button variant="outline" size="sm" onClick={onResetTemplate} className="h-8 px-2">
                 <RotateCcw className="w-3 h-3 mr-1" />
-                {t("templateEditor.resetToDefault")}
+                Reset to default
               </Button>
-              <Button onClick={handleSaveTemplate} size="sm">
-                {t("templateEditor.saveTemplate")}
+              <Button onClick={handleSaveTemplate} size="sm" className="h-8">
+                <Save className="w-4 h-4" />
+                Save Edits
               </Button>
             </div>
           </div>
 
+          {/* Presets Row */}
+          {presets.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex flex-wrap gap-1 flex-1">
+                {presets.map((preset) => (
+                  <div key={preset.id} className="relative group">
+                    <Badge
+                      variant={preset.id === currentPresetId ? "default" : "outline"}
+                      className="cursor-pointer text-xs px-2 py-1 h-6"
+                      onClick={() => handlePresetClick(preset)}
+                    >
+                      {preset.name}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive hover:bg-destructive text-destructive-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePreset(preset.id);
+                      }}
+                    >
+                      <X className="h-2 w-2" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Template Textarea */}
           <Textarea
             value={currentTemplate}
             onChange={handleTextareaChange}
             onSelect={handleTextareaSelect}
             onKeyUp={handleTextareaSelect}
             onClick={handleTextareaSelect}
-            className="min-h-[200px] font-mono text-sm"
-            placeholder={t("templateEditor.placeholder")}
+            className="min-h-[100px] font-mono text-sm resize-none"
+            placeholder="Enter your template here..."
           />
 
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t("templateEditor.availableParameters")}</p>
+          {/* Parameters Tabs */}
+          <div className="space-y-2">
+            <div className="text-xs text-muted-foreground font-medium">Parameters</div>
+            <Tabs defaultValue={categoryOrder[0]} className="w-full">
+              <TabsList className="flex w-full h-auto flex-wrap justify-start">
+                {categoryOrder.map((category) => {
+                  const params = groupedParams[category];
+                  if (!params || params.length === 0) return null;
 
-            <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  return (
+                    <TabsTrigger key={category} value={category} className="text-xs py-2 px-3 h-auto whitespace-nowrap flex-shrink-0">
+                      {category}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
               {categoryOrder.map((category) => {
                 const params = groupedParams[category];
                 if (!params || params.length === 0) return null;
 
                 return (
-                  <div key={category} className="space-y-2">
-                    <h5 className="text-sm font-medium text-muted-foreground border-b pb-1">{category}</h5>
-                    <div className="flex flex-wrap gap-2">
+                  <TabsContent key={category} value={category} className="mt-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {params.map((param) => (
                         <Tooltip key={param.name}>
                           <TooltipTrigger asChild>
-                            <span>
-                              <Badge
-                                variant="secondary"
-                                className={`cursor-pointer ${getCategoryColor(category)} transition-colors`}
-                                onClick={() => handleParamClick(param.name)}
-                              >
-                                {param.name}
-                              </Badge>
-                            </span>
+                            <button
+                              onClick={() => handleParamClick(param.name)}
+                              className="text-left p-2 rounded text-xs font-mono transition-colors border hover:bg-accent hover:text-accent-foreground"
+                            >
+                              {param.name}
+                            </button>
                           </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{param.description}</p>
+                          <TooltipContent side="top">
+                            <p className="text-xs">{param.description}</p>
                           </TooltipContent>
                         </Tooltip>
                       ))}
                     </div>
-                  </div>
+                  </TabsContent>
                 );
               })}
-            </div>
+            </Tabs>
           </div>
         </div>
       </PopoverContent>

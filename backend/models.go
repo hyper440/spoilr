@@ -1,5 +1,12 @@
 package backend
 
+// TemplatePreset represents a saved template configuration
+type TemplatePreset struct {
+	ID       string `json:"id" koanf:"id"`
+	Name     string `json:"name" koanf:"name"`
+	Template string `json:"template" koanf:"template"`
+}
+
 // Movie represents a media file with its metadata
 type Movie struct {
 	ID                string  `json:"id"`

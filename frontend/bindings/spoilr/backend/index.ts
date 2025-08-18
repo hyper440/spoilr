@@ -9,5 +9,6 @@ export {
 export {
     AppSettings,
     AppState,
-    Movie
+    Movie,
+    TemplatePreset
 } from "./models.js";

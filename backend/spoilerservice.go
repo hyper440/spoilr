@@ -1388,3 +1388,60 @@ func (s *SpoilerService) SetTemplate(template string) {
 		log.Printf("Failed to save template: %v", err)
 	}
 }
+
+func (s *SpoilerService) GetTemplatePresets() []TemplatePreset {
+	config := s.configManager.GetConfig()
+	return config.TemplatePresets
+}
+
+func (s *SpoilerService) GetCurrentPresetID() string {
+	config := s.configManager.GetConfig()
+	return config.CurrentPresetID
+}
+
+func (s *SpoilerService) SaveTemplatePreset(name, template string) (TemplatePreset, error) {
+	if name == "" {
+		return TemplatePreset{}, fmt.Errorf("preset name cannot be empty")
+	}
+	if template == "" {
+		return TemplatePreset{}, fmt.Errorf("template cannot be empty")
+	}
+
+	preset := TemplatePreset{
+		ID:       "", // Will be generated in config service
+		Name:     name,
+		Template: template,
+	}
+
+	err := s.configManager.SaveTemplatePreset(preset)
+	if err != nil {
+		return TemplatePreset{}, err
+	}
+
+	// Return the preset with generated ID
+	presets := s.configManager.GetConfig().TemplatePresets
+	for _, p := range presets {
+		if p.Name == name && p.Template == template {
+			return p, nil
+		}
+	}
+
+	return preset, nil
+}
+
+func (s *SpoilerService) DeleteTemplatePreset(presetID string) error {
+	return s.configManager.DeleteTemplatePreset(presetID)
+}
+
+func (s *SpoilerService) SetCurrentPreset(presetID string) error {
+	err := s.configManager.SetCurrentPreset(presetID)
+	if err != nil {
+		return err
+	}
+
+	// Update the service's current template
+	config := s.configManager.GetConfig()
+	s.template = config.Template
+
+	return nil
+}

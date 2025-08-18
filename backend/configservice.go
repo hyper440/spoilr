@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
@@ -13,14 +14,16 @@ import (
 )
 
 type SpoilerConfig struct {
-	ScreenshotCount          int    `json:"screenshotCount" koanf:"screenshot_count"`
-	FastpicSID               string `json:"fastpicSid" koanf:"fastpic_sid"`
-	ScreenshotQuality        int    `json:"screenshotQuality" koanf:"screenshot_quality"`
-	MaxConcurrentScreenshots int    `json:"maxConcurrentScreenshots" koanf:"max_concurrent_screenshots"`
-	MaxConcurrentUploads     int    `json:"maxConcurrentUploads" koanf:"max_concurrent_uploads"`
-	Template                 string `json:"template" koanf:"template"`
-	MtnArgs                  string `json:"mtnArgs" koanf:"mtn_args"`
-	ImageMiniatureSize       int    `json:"imageMiniatureSize" koanf:"image_miniature_size"`
+	ScreenshotCount          int              `json:"screenshotCount" koanf:"screenshot_count"`
+	FastpicSID               string           `json:"fastpicSid" koanf:"fastpic_sid"`
+	ScreenshotQuality        int              `json:"screenshotQuality" koanf:"screenshot_quality"`
+	MaxConcurrentScreenshots int              `json:"maxConcurrentScreenshots" koanf:"max_concurrent_screenshots"`
+	MaxConcurrentUploads     int              `json:"maxConcurrentUploads" koanf:"max_concurrent_uploads"`
+	Template                 string           `json:"template" koanf:"template"`
+	CurrentPresetID          string           `json:"currentPresetId" koanf:"current_preset_id"`
+	TemplatePresets          []TemplatePreset `json:"templatePresets" koanf:"template_presets"`
+	MtnArgs                  string           `json:"mtnArgs" koanf:"mtn_args"`
+	ImageMiniatureSize       int              `json:"imageMiniatureSize" koanf:"image_miniature_size"`
 	// Hamster settings
 	HamsterEmail    string `json:"hamsterEmail" koanf:"hamster_email"`
 	HamsterPassword string `json:"hamsterPassword" koanf:"hamster_password"`
@@ -29,13 +32,54 @@ type SpoilerConfig struct {
 var SpoilerAppConfig SpoilerConfig
 var ConfigPath string
 
+func getDefaultTemplate() string {
+	return `[spoiler="%FILE_NAME% | %FILE_SIZE%"]
+File: %FILE_NAME%
+Size: %FILE_SIZE%
+Duration: %DURATION%
+Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
+Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
+
+%CONTACT_SHEET_FP%
+
+%SCREENSHOTS_FP%
+[/spoiler]`
+}
+
+func getDefaultPresets() []TemplatePreset {
+	return []TemplatePreset{
+		{
+			ID:       "default-pl",
+			Name:     "PL Default",
+			Template: getDefaultTemplate(),
+		},
+		{
+			ID:   "default-emp",
+			Name: "EMP Default",
+			Template: `[spoiler=%FILE_NAME% | %FILE_SIZE%]
+						File: %FILE_NAME%
+						Size: %FILE_SIZE%
+						Duration: %DURATION%
+						Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
+						Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
+
+						%CONTACT_SHEET_HAM%
+
+						%SCREENSHOTS_HAM%
+						[/spoiler]`,
+		},
+	}
+}
+
 var DefaultSpoilerConfig = SpoilerConfig{
 	ScreenshotCount:          6,
 	FastpicSID:               "",
 	ScreenshotQuality:        2,
 	MaxConcurrentScreenshots: 3,
 	MaxConcurrentUploads:     2,
-	Template:                 "",
+	Template:                 getDefaultTemplate(),
+	CurrentPresetID:          "default-fastpic",
+	TemplatePresets:          getDefaultPresets(),
 	MtnArgs:                  "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
 	ImageMiniatureSize:       350,
 	HamsterEmail:             "",
@@ -86,8 +130,94 @@ func (g *ConfigService) UpdateConfig(config SpoilerConfig) error {
 		return fmt.Errorf("image miniature size must be between 100 and 800")
 	}
 
+	// Ensure we always have at least one preset
+	if len(config.TemplatePresets) == 0 {
+		config.TemplatePresets = getDefaultPresets()
+		config.CurrentPresetID = "default-fastpic"
+	}
+
 	SpoilerAppConfig = config
 	return saveSpoilerAppConfig()
+}
+
+func (g *ConfigService) SaveTemplatePreset(preset TemplatePreset) error {
+	config := g.GetConfig()
+
+	// Limit to 5 presets
+	if len(config.TemplatePresets) >= 5 {
+		// Check if this is an update to existing preset
+		found := false
+		for i, p := range config.TemplatePresets {
+			if p.ID == preset.ID {
+				config.TemplatePresets[i] = preset
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("maximum of 5 template presets allowed")
+		}
+	} else {
+		// Check if updating existing preset
+		found := false
+		for i, p := range config.TemplatePresets {
+			if p.ID == preset.ID {
+				config.TemplatePresets[i] = preset
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Generate ID if not provided
+			if preset.ID == "" {
+				preset.ID = uuid.New().String()
+			}
+			config.TemplatePresets = append(config.TemplatePresets, preset)
+		}
+	}
+
+	return g.UpdateConfig(config)
+}
+
+func (g *ConfigService) DeleteTemplatePreset(presetID string) error {
+	config := g.GetConfig()
+
+	// Don't allow deletion if only one preset left
+	if len(config.TemplatePresets) <= 1 {
+		return fmt.Errorf("cannot delete the last template preset")
+	}
+
+	// Find and remove the preset
+	for i, preset := range config.TemplatePresets {
+		if preset.ID == presetID {
+			config.TemplatePresets = append(config.TemplatePresets[:i], config.TemplatePresets[i+1:]...)
+
+			// If we deleted the current preset, switch to first available
+			if config.CurrentPresetID == presetID {
+				config.CurrentPresetID = config.TemplatePresets[0].ID
+				config.Template = config.TemplatePresets[0].Template
+			}
+
+			return g.UpdateConfig(config)
+		}
+	}
+
+	return fmt.Errorf("preset not found")
+}
+
+func (g *ConfigService) SetCurrentPreset(presetID string) error {
+	config := g.GetConfig()
+
+	// Find the preset
+	for _, preset := range config.TemplatePresets {
+		if preset.ID == presetID {
+			config.CurrentPresetID = presetID
+			config.Template = preset.Template
+			return g.UpdateConfig(config)
+		}
+	}
+
+	return fmt.Errorf("preset not found")
 }
 
 func initSpoilerConfigPath() {
@@ -176,12 +306,19 @@ func loadSpoilerAppConfig() SpoilerConfig {
 		c.ImageMiniatureSize = DefaultSpoilerConfig.ImageMiniatureSize
 	}
 	if c.Template == "" {
-		c.Template = DefaultSpoilerConfig.Template
+		c.Template = getDefaultTemplate()
 	}
 	if c.MtnArgs == "" {
 		c.MtnArgs = DefaultSpoilerConfig.MtnArgs
 	}
-	// No validation needed for hamster credentials - they can be empty
+
+	// Ensure we have presets and current preset ID
+	if len(c.TemplatePresets) == 0 {
+		c.TemplatePresets = getDefaultPresets()
+	}
+	if c.CurrentPresetID == "" {
+		c.CurrentPresetID = c.TemplatePresets[0].ID
+	}
 
 	return c
 }
