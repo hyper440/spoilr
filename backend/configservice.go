@@ -19,7 +19,6 @@ type SpoilerConfig struct {
 	ScreenshotQuality        int              `json:"screenshotQuality" koanf:"screenshot_quality"`
 	MaxConcurrentScreenshots int              `json:"maxConcurrentScreenshots" koanf:"max_concurrent_screenshots"`
 	MaxConcurrentUploads     int              `json:"maxConcurrentUploads" koanf:"max_concurrent_uploads"`
-	Template                 string           `json:"template" koanf:"template"`
 	CurrentPresetID          string           `json:"currentPresetId" koanf:"current_preset_id"`
 	TemplatePresets          []TemplatePreset `json:"templatePresets" koanf:"template_presets"`
 	MtnArgs                  string           `json:"mtnArgs" koanf:"mtn_args"`
@@ -77,8 +76,7 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	ScreenshotQuality:        2,
 	MaxConcurrentScreenshots: 3,
 	MaxConcurrentUploads:     2,
-	Template:                 getDefaultTemplate(),
-	CurrentPresetID:          "default-fastpic",
+	CurrentPresetID:          "default-pl",
 	TemplatePresets:          getDefaultPresets(),
 	MtnArgs:                  "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
 	ImageMiniatureSize:       350,
@@ -133,7 +131,19 @@ func (g *ConfigService) UpdateConfig(config SpoilerConfig) error {
 	// Ensure we always have at least one preset
 	if len(config.TemplatePresets) == 0 {
 		config.TemplatePresets = getDefaultPresets()
-		config.CurrentPresetID = "default-fastpic"
+		config.CurrentPresetID = "default-pl"
+	}
+
+	// Validate current preset ID exists
+	found := false
+	for _, preset := range config.TemplatePresets {
+		if preset.ID == config.CurrentPresetID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		config.CurrentPresetID = config.TemplatePresets[0].ID
 	}
 
 	SpoilerAppConfig = config
@@ -195,7 +205,6 @@ func (g *ConfigService) DeleteTemplatePreset(presetID string) error {
 			// If we deleted the current preset, switch to first available
 			if config.CurrentPresetID == presetID {
 				config.CurrentPresetID = config.TemplatePresets[0].ID
-				config.Template = config.TemplatePresets[0].Template
 			}
 
 			return g.UpdateConfig(config)
@@ -212,12 +221,30 @@ func (g *ConfigService) SetCurrentPreset(presetID string) error {
 	for _, preset := range config.TemplatePresets {
 		if preset.ID == presetID {
 			config.CurrentPresetID = presetID
-			config.Template = preset.Template
 			return g.UpdateConfig(config)
 		}
 	}
 
 	return fmt.Errorf("preset not found")
+}
+
+func (g *ConfigService) GetCurrentTemplate() string {
+	config := g.GetConfig()
+
+	// Find current preset
+	for _, preset := range config.TemplatePresets {
+		if preset.ID == config.CurrentPresetID {
+			return preset.Template
+		}
+	}
+
+	// Fallback to first preset if current preset not found
+	if len(config.TemplatePresets) > 0 {
+		return config.TemplatePresets[0].Template
+	}
+
+	// Ultimate fallback
+	return getDefaultTemplate()
 }
 
 func initSpoilerConfigPath() {
@@ -305,9 +332,6 @@ func loadSpoilerAppConfig() SpoilerConfig {
 	if c.ImageMiniatureSize < 100 || c.ImageMiniatureSize > 800 {
 		c.ImageMiniatureSize = DefaultSpoilerConfig.ImageMiniatureSize
 	}
-	if c.Template == "" {
-		c.Template = getDefaultTemplate()
-	}
 	if c.MtnArgs == "" {
 		c.MtnArgs = DefaultSpoilerConfig.MtnArgs
 	}
@@ -317,6 +341,18 @@ func loadSpoilerAppConfig() SpoilerConfig {
 		c.TemplatePresets = getDefaultPresets()
 	}
 	if c.CurrentPresetID == "" {
+		c.CurrentPresetID = c.TemplatePresets[0].ID
+	}
+
+	// Validate current preset ID exists
+	found := false
+	for _, preset := range c.TemplatePresets {
+		if preset.ID == c.CurrentPresetID {
+			found = true
+			break
+		}
+	}
+	if !found {
 		c.CurrentPresetID = c.TemplatePresets[0].ID
 	}
 

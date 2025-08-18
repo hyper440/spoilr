@@ -13,8 +13,6 @@ import { SpoilerService } from "@bindings/spoilr/backend";
 import AnimatedText from "@/components/AnimatedText";
 
 interface TemplateEditorProps {
-  template: string;
-  onTemplateChange: (template: string) => void;
   onResetTemplate: () => void;
 }
 
@@ -30,10 +28,10 @@ interface TemplatePreset {
   template: string;
 }
 
-export default function TemplateEditor({ template, onTemplateChange, onResetTemplate }: TemplateEditorProps) {
+export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentTemplate, setCurrentTemplate] = useState(template);
+  const [currentTemplate, setCurrentTemplate] = useState("");
   const [cursorPosition, setCursorPosition] = useState(0);
   const [presets, setPresets] = useState<TemplatePreset[]>([]);
   const [currentPresetId, setCurrentPresetId] = useState<string>("");
@@ -42,21 +40,23 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
   const [showNewPreset, setShowNewPreset] = useState(false);
 
   useEffect(() => {
-    setCurrentTemplate(template);
-  }, [template]);
-
-  useEffect(() => {
     if (isOpen) {
-      loadPresets();
+      loadPresetsAndCurrentTemplate();
     }
   }, [isOpen]);
 
-  const loadPresets = async () => {
+  const loadPresetsAndCurrentTemplate = async () => {
     try {
-      const loadedPresets = await SpoilerService.GetTemplatePresets();
+      const [loadedPresets, currentPreset, template] = await Promise.all([
+        SpoilerService.GetTemplatePresets(),
+        SpoilerService.GetCurrentPresetID(),
+        SpoilerService.GetTemplate(),
+      ]);
       setPresets(loadedPresets);
+      setCurrentPresetId(currentPreset);
+      setCurrentTemplate(template);
     } catch (error) {
-      console.error("Failed to load template presets:", error);
+      console.error("Failed to load template data:", error);
     }
   };
 
@@ -122,7 +122,6 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (open) {
-      setCurrentTemplate(template);
       setNewPresetName("");
       setShowNewPreset(false);
     }
@@ -146,15 +145,23 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
     setCursorPosition(target.selectionStart);
   };
 
-  const handleSaveTemplate = () => {
-    onTemplateChange(currentTemplate);
-    setIsOpen(false);
+  const handleSaveTemplate = async () => {
+    try {
+      await SpoilerService.SetTemplate(currentTemplate);
+      setIsOpen(false);
+    } catch (error) {
+      console.error("Failed to save template:", error);
+    }
   };
 
   const handlePresetClick = async (preset: TemplatePreset) => {
-    setCurrentTemplate(preset.template);
-    setCurrentPresetId(preset.id);
-    onTemplateChange(preset.template);
+    try {
+      await SpoilerService.SetCurrentPreset(preset.id);
+      setCurrentTemplate(preset.template);
+      setCurrentPresetId(preset.id);
+    } catch (error) {
+      console.error("Failed to set current preset:", error);
+    }
   };
 
   const handleSavePreset = async () => {
@@ -163,7 +170,7 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
     setIsSavingPreset(true);
     try {
       await SpoilerService.SaveTemplatePreset(newPresetName.trim(), currentTemplate);
-      await loadPresets(); // Reload presets from backend
+      await loadPresetsAndCurrentTemplate(); // Reload data from backend
       setNewPresetName("");
       setShowNewPreset(false);
     } catch (error) {
@@ -176,10 +183,7 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
   const handleDeletePreset = async (presetId: string) => {
     try {
       await SpoilerService.DeleteTemplatePreset(presetId);
-      await loadPresets(); // Reload presets from backend
-      if (presetId === currentPresetId) {
-        setCurrentPresetId("");
-      }
+      await loadPresetsAndCurrentTemplate(); // Reload data from backend
     } catch (error) {
       console.error("Failed to delete template preset:", error);
     }
@@ -265,7 +269,7 @@ export default function TemplateEditor({ template, onTemplateChange, onResetTemp
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-destructive hover:bg-destructive text-destructive-foreground"
+                      className="absolute -top-2 -right-2 size-4 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-secondary hover:bg-destructive text-secondary-foreground hover:text-destructive-foreground"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeletePreset(preset.id);

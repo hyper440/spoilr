@@ -18,7 +18,6 @@ function AppContent() {
     movies: [],
   });
   const [settings, setSettings] = useState<AppSettings>({} as AppSettings);
-  const [template, setTemplate] = useState("");
 
   useEffect(() => {
     loadInitialData();
@@ -56,14 +55,9 @@ function AppContent() {
 
   const loadInitialData = async () => {
     try {
-      const [appSettings, tmpl, initialState] = await Promise.all([
-        SpoilerService.GetSettings(),
-        SpoilerService.GetTemplate(),
-        SpoilerService.GetState(),
-      ]);
+      const [appSettings, initialState] = await Promise.all([SpoilerService.GetSettings(), SpoilerService.GetState()]);
 
       setSettings(appSettings);
-      setTemplate(tmpl);
       setState(initialState);
     } catch (error) {
       console.error(t("errors.loadInitialData"), error);
@@ -102,20 +96,10 @@ function AppContent() {
     }
   };
 
-  const saveTemplate = async (newTemplate: string) => {
-    try {
-      await SpoilerService.SetTemplate(newTemplate);
-      setTemplate(newTemplate);
-    } catch (error) {
-      console.error(t("errors.saveTemplate"), error);
-    }
-  };
-
   const resetTemplateToDefault = async () => {
     try {
       const defaultTemplate = await SpoilerService.GetDefaultTemplate();
       await SpoilerService.SetTemplate(defaultTemplate);
-      setTemplate(defaultTemplate);
     } catch (error) {
       console.error(t("errors.resetTemplate"), error);
     }
@@ -175,7 +159,7 @@ function AppContent() {
             <AnimatedText>Spoilr</AnimatedText>
           </a>
           <div className="wails-no-drag flex items-center gap-10">
-            <TemplateEditor template={template} onTemplateChange={saveTemplate} onResetTemplate={resetTemplateToDefault} />
+            <TemplateEditor onResetTemplate={resetTemplateToDefault} />
             <SettingsPopover settings={settings} onUpdateSettings={updateSettings} />
           </div>
         </div>
@@ -200,7 +184,6 @@ function AppContent() {
     </div>
   );
 }
-
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">

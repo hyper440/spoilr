@@ -62,13 +62,8 @@ func NewSpoilerService() *SpoilerService {
 			HamsterEmail:             config.HamsterEmail,
 			HamsterPassword:          config.HamsterPassword,
 		},
-		template:      config.Template,
 		processing:    false,
 		configManager: configManager,
-	}
-
-	if service.template == "" {
-		service.template = service.GetDefaultTemplate()
 	}
 
 	service.initSemaphores()
@@ -116,9 +111,12 @@ Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	req := UploaderRequirements{}
 
+	// Get current template from config
+	template := s.configManager.GetCurrentTemplate()
+
 	// Check what types of content are needed first
-	needsContactSheet := strings.Contains(s.template, "CONTACT_SHEET")
-	needsScreenshots := strings.Contains(s.template, "SCREENSHOTS")
+	needsContactSheet := strings.Contains(template, "CONTACT_SHEET")
+	needsScreenshots := strings.Contains(template, "SCREENSHOTS")
 
 	// Early return if no image content is needed
 	if !needsContactSheet && !needsScreenshots {
@@ -126,7 +124,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for fastpic hosting suffix
-	if strings.Contains(s.template, "_FP") {
+	if strings.Contains(template, "_FP") {
 		req.NeedsFastpic = true
 		if needsContactSheet {
 			req.FastpicContactSheet = true
@@ -137,7 +135,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for imgbox hosting suffix
-	if strings.Contains(s.template, "_IB") {
+	if strings.Contains(template, "_IB") {
 		req.NeedsImgbox = true
 		if needsContactSheet {
 			req.ImgboxContactSheet = true
@@ -148,7 +146,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for hamster hosting suffix
-	if strings.Contains(s.template, "_HAM") {
+	if strings.Contains(template, "_HAM") {
 		req.NeedsHamster = true
 		if needsContactSheet {
 			req.HamsterContactSheet = true
@@ -1143,14 +1141,15 @@ func (s *SpoilerService) GenerateResult() string {
 }
 
 func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
-	tmp := s.template
+	// Get current template from config
+	template := s.configManager.GetCurrentTemplate()
 
-	tmp = s.replaceBasicPlaceholders(tmp, movie)
-	tmp = s.replaceContactSheetPlaceholders(tmp, movie)
-	tmp = s.replaceScreenshotPlaceholders(tmp, movie)
-	tmp = s.replaceParameterPlaceholders(tmp, movie)
+	template = s.replaceBasicPlaceholders(template, movie)
+	template = s.replaceContactSheetPlaceholders(template, movie)
+	template = s.replaceScreenshotPlaceholders(template, movie)
+	template = s.replaceParameterPlaceholders(template, movie)
 
-	return tmp
+	return template
 }
 
 // Replace basic movie information placeholders
@@ -1292,18 +1291,16 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 	s.settings = settings
 
 	// Save to config
-	config := SpoilerConfig{
-		ScreenshotCount:          settings.ScreenshotCount,
-		FastpicSID:               settings.FastpicSID,
-		ScreenshotQuality:        settings.ScreenshotQuality,
-		MaxConcurrentScreenshots: settings.MaxConcurrentScreenshots,
-		MaxConcurrentUploads:     settings.MaxConcurrentUploads,
-		Template:                 s.template,
-		MtnArgs:                  settings.MtnArgs,
-		ImageMiniatureSize:       settings.ImageMiniatureSize,
-		HamsterEmail:             settings.HamsterEmail,
-		HamsterPassword:          settings.HamsterPassword,
-	}
+	config := s.configManager.GetConfig()
+	config.ScreenshotCount = settings.ScreenshotCount
+	config.FastpicSID = settings.FastpicSID
+	config.ScreenshotQuality = settings.ScreenshotQuality
+	config.MaxConcurrentScreenshots = settings.MaxConcurrentScreenshots
+	config.MaxConcurrentUploads = settings.MaxConcurrentUploads
+	config.MtnArgs = settings.MtnArgs
+	config.ImageMiniatureSize = settings.ImageMiniatureSize
+	config.HamsterEmail = settings.HamsterEmail
+	config.HamsterPassword = settings.HamsterPassword
 
 	if err := s.configManager.UpdateConfig(config); err != nil {
 		log.Printf("Failed to save settings: %v", err)
@@ -1351,15 +1348,21 @@ func (s *SpoilerService) parseMtnArgs() []string {
 
 // Template management
 func (s *SpoilerService) GetTemplate() string {
-	return s.template
+	return s.configManager.GetCurrentTemplate()
 }
 
 func (s *SpoilerService) SetTemplate(template string) {
-	s.template = template
-
-	// Update config with new template
+	// Update the current preset's template
 	config := s.configManager.GetConfig()
-	config.Template = template
+
+	// Find and update current preset
+	for i, preset := range config.TemplatePresets {
+		if preset.ID == config.CurrentPresetID {
+			config.TemplatePresets[i].Template = template
+			break
+		}
+	}
+
 	if err := s.configManager.UpdateConfig(config); err != nil {
 		log.Printf("Failed to save template: %v", err)
 	}
@@ -1410,14 +1413,5 @@ func (s *SpoilerService) DeleteTemplatePreset(presetID string) error {
 }
 
 func (s *SpoilerService) SetCurrentPreset(presetID string) error {
-	err := s.configManager.SetCurrentPreset(presetID)
-	if err != nil {
-		return err
-	}
-
-	// Update the service's current template
-	config := s.configManager.GetConfig()
-	s.template = config.Template
-
-	return nil
+	return s.configManager.SetCurrentPreset(presetID)
 }
