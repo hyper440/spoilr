@@ -3,7 +3,7 @@ import { LanguageProvider, useTranslation } from "@/contexts/LanguageContext";
 import { useState, useEffect } from "react";
 import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/spoilr/backend";
 import { Events, WML } from "@wailsio/runtime";
-import { toast } from "sonner";
+import { Toaster, toast } from "sonner";
 
 import DropZone from "./components/DropZone";
 import MovieTable from "./components/MovieTable";
@@ -31,16 +31,17 @@ function AppContent() {
       setState(newState as AppState);
     };
 
-    const handleMtnMissing = (ev: any) => {
+    const handleErrorEvent = (ev: any) => {
       const data = Array.isArray(ev.data) ? ev.data[0] : ev.data;
-      toast.error(t("toast.mtnMissing"), {
-        description: data.message || t("toast.mtnMissingDescription"),
+      console.log(data);
+      toast.error("Error", {
+        description: data.message,
         duration: 8000,
       });
     };
 
     Events.On("state", handleStateUpdate);
-    Events.On("mtn-missing", handleMtnMissing);
+    Events.On("error", handleErrorEvent);
 
     // Load initial state immediately
     SpoilerService.GetState().then(setState).catch(console.error);
@@ -49,7 +50,7 @@ function AppContent() {
 
     return () => {
       Events.Off("state");
-      Events.Off("mtn-missing");
+      Events.Off("error");
     };
   }, [t]);
 
@@ -187,6 +188,7 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+      <Toaster />
       <LanguageProvider>
         <AppContent />
       </LanguageProvider>

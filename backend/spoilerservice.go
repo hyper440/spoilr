@@ -996,7 +996,7 @@ func (s *SpoilerService) generateMovieContactSheet(videoPath, tempDir string) (s
 	if _, err := exec.LookPath("mtn"); err != nil {
 		// Emit event that mtn is missing (only once per processing session)
 		if s.app != nil {
-			s.app.Event.Emit("mtn-missing", map[string]string{
+			s.app.Event.Emit("error", map[string]string{
 				"message": "MTN (Movie Thumbnailer) is not installed or not found in PATH. Contact sheet generation will be skipped.",
 			})
 		}
