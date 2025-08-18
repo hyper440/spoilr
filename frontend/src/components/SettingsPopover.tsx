@@ -107,6 +107,35 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
 
             <Separator />
 
+            {/* Hamster Settings */}
+            <div className="space-y-2">
+              <Label htmlFor="hamsterEmail" className="text-sm font-medium">
+                {t("settings.hamsterEmail")}
+              </Label>
+              <Input
+                id="hamsterEmail"
+                type="email"
+                value={settings.hamsterEmail || ""}
+                onChange={(e) => onUpdateSettings({ hamsterEmail: e.target.value })}
+                placeholder={t("settings.hamsterEmailPlaceholder")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hamsterPassword" className="text-sm font-medium">
+                {t("settings.hamsterPassword")}
+              </Label>
+              <Input
+                id="hamsterPassword"
+                type="password"
+                value={settings.hamsterPassword || ""}
+                onChange={(e) => onUpdateSettings({ hamsterPassword: e.target.value })}
+                placeholder={t("settings.hamsterPasswordPlaceholder")}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t("settings.hamsterDescription")}</p>
+
+            <Separator />
+
             {/* MTN Settings */}
             <div className="space-y-2">
               <Label htmlFor="mtnArgs" className="text-sm font-medium">

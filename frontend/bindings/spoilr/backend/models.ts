@@ -29,6 +29,17 @@ export class AppSettings {
     "mtnArgs": string;
     "imageMiniatureSize": number;
 
+    /**
+     * Hamster settings
+     * Hamster.is email
+     */
+    "hamsterEmail": string;
+
+    /**
+     * Hamster.is password
+     */
+    "hamsterPassword": string;
+
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("screenshotCount" in $$source)) {
@@ -51,6 +62,12 @@ export class AppSettings {
         }
         if (!("imageMiniatureSize" in $$source)) {
             this["imageMiniatureSize"] = 0;
+        }
+        if (!("hamsterEmail" in $$source)) {
+            this["hamsterEmail"] = "";
+        }
+        if (!("hamsterPassword" in $$source)) {
+            this["hamsterPassword"] = "";
         }
 
         Object.assign(this, $$source);
@@ -166,6 +183,27 @@ export class Movie {
      * Individual screenshots (big)
      */
     "screenshotBigUrlsIb": string[];
+
+    /**
+     * Hamster Results
+     * MTN-generated contact sheet (small)
+     */
+    "contactSheetUrlHam": string;
+
+    /**
+     * MTN-generated contact sheet (big)
+     */
+    "contactSheetBigUrlHam": string;
+
+    /**
+     * Individual screenshots (small)
+     */
+    "screenshotUrlsHam": string[];
+
+    /**
+     * Individual screenshots (big)
+     */
+    "screenshotBigUrlsHam": string[];
     "params": { [_: string]: string };
 
     /**
@@ -254,6 +292,18 @@ export class Movie {
         if (!("screenshotBigUrlsIb" in $$source)) {
             this["screenshotBigUrlsIb"] = [];
         }
+        if (!("contactSheetUrlHam" in $$source)) {
+            this["contactSheetUrlHam"] = "";
+        }
+        if (!("contactSheetBigUrlHam" in $$source)) {
+            this["contactSheetBigUrlHam"] = "";
+        }
+        if (!("screenshotUrlsHam" in $$source)) {
+            this["screenshotUrlsHam"] = [];
+        }
+        if (!("screenshotBigUrlsHam" in $$source)) {
+            this["screenshotBigUrlsHam"] = [];
+        }
         if (!("params" in $$source)) {
             this["params"] = {};
         }
@@ -272,8 +322,10 @@ export class Movie {
         const $$createField17_0 = $$createType2;
         const $$createField21_0 = $$createType2;
         const $$createField22_0 = $$createType2;
-        const $$createField23_0 = $$createType3;
+        const $$createField25_0 = $$createType2;
         const $$createField26_0 = $$createType2;
+        const $$createField27_0 = $$createType3;
+        const $$createField30_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("screenshotUrls" in $$parsedSource) {
             $$parsedSource["screenshotUrls"] = $$createField16_0($$parsedSource["screenshotUrls"]);
@@ -287,11 +339,17 @@ export class Movie {
         if ("screenshotBigUrlsIb" in $$parsedSource) {
             $$parsedSource["screenshotBigUrlsIb"] = $$createField22_0($$parsedSource["screenshotBigUrlsIb"]);
         }
+        if ("screenshotUrlsHam" in $$parsedSource) {
+            $$parsedSource["screenshotUrlsHam"] = $$createField25_0($$parsedSource["screenshotUrlsHam"]);
+        }
+        if ("screenshotBigUrlsHam" in $$parsedSource) {
+            $$parsedSource["screenshotBigUrlsHam"] = $$createField26_0($$parsedSource["screenshotBigUrlsHam"]);
+        }
         if ("params" in $$parsedSource) {
-            $$parsedSource["params"] = $$createField23_0($$parsedSource["params"]);
+            $$parsedSource["params"] = $$createField27_0($$parsedSource["params"]);
         }
         if ("errors" in $$parsedSource) {
-            $$parsedSource["errors"] = $$createField26_0($$parsedSource["errors"]);
+            $$parsedSource["errors"] = $$createField30_0($$parsedSource["errors"]);
         }
         return new Movie($$parsedSource as Partial<Movie>);
     }

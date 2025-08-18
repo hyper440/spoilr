@@ -30,6 +30,12 @@ type Movie struct {
 	ScreenshotURLsIB     []string `json:"screenshotUrlsIb"`     // Individual screenshots (small)
 	ScreenshotBigURLsIB  []string `json:"screenshotBigUrlsIb"`  // Individual screenshots (big)
 
+	// Hamster Results
+	ContactSheetURLHam    string   `json:"contactSheetUrlHam"`    // MTN-generated contact sheet (small)
+	ContactSheetBigURLHam string   `json:"contactSheetBigUrlHam"` // MTN-generated contact sheet (big)
+	ScreenshotURLsHam     []string `json:"screenshotUrlsHam"`     // Individual screenshots (small)
+	ScreenshotBigURLsHam  []string `json:"screenshotBigUrlsHam"`  // Individual screenshots (big)
+
 	Params          map[string]string `json:"params"`
 	ProcessingState string            `json:"processingState"`           // State constants defined below
 	ProcessingError string            `json:"processingError,omitempty"` // Error details if processing fails
@@ -70,6 +76,9 @@ type AppSettings struct {
 	MaxConcurrentUploads     int    `json:"maxConcurrentUploads"`     // Max parallel uploads
 	MtnArgs                  string `json:"mtnArgs"`                  // MTN command line arguments
 	ImageMiniatureSize       int    `json:"imageMiniatureSize"`
+	// Hamster settings
+	HamsterEmail    string `json:"hamsterEmail"`    // Hamster.is email
+	HamsterPassword string `json:"hamsterPassword"` // Hamster.is password
 }
 
 // TemplateData represents data for template processing

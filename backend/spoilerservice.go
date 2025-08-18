@@ -35,11 +35,14 @@ type SpoilerService struct {
 type UploaderRequirements struct {
 	NeedsFastpic bool
 	NeedsImgbox  bool
+	NeedsHamster bool
 
 	FastpicContactSheet bool
 	FastpicScreenshots  bool
 	ImgboxContactSheet  bool
 	ImgboxScreenshots   bool
+	HamsterContactSheet bool
+	HamsterScreenshots  bool
 }
 
 func NewSpoilerService() *SpoilerService {
@@ -56,6 +59,8 @@ func NewSpoilerService() *SpoilerService {
 			MaxConcurrentUploads:     config.MaxConcurrentUploads,
 			MtnArgs:                  config.MtnArgs,
 			ImageMiniatureSize:       config.ImageMiniatureSize,
+			HamsterEmail:             config.HamsterEmail,
+			HamsterPassword:          config.HamsterPassword,
 		},
 		template:      config.Template,
 		processing:    false,
@@ -121,7 +126,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for fastpic hosting suffix
-	if strings.Contains(s.template, "_FP%") {
+	if strings.Contains(s.template, "_FP") {
 		req.NeedsFastpic = true
 		if needsContactSheet {
 			req.FastpicContactSheet = true
@@ -132,7 +137,7 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	}
 
 	// Check for imgbox hosting suffix
-	if strings.Contains(s.template, "_IB%") {
+	if strings.Contains(s.template, "_IB") {
 		req.NeedsImgbox = true
 		if needsContactSheet {
 			req.ImgboxContactSheet = true
@@ -141,6 +146,19 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 			req.ImgboxScreenshots = true
 		}
 	}
+
+	// Check for hamster hosting suffix
+	if strings.Contains(s.template, "_HAM") {
+		req.NeedsHamster = true
+		if needsContactSheet {
+			req.HamsterContactSheet = true
+		}
+		if needsScreenshots {
+			req.HamsterScreenshots = true
+		}
+	}
+
+	fmt.Printf("%+v\n", req)
 
 	return req
 }
@@ -184,15 +202,16 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		}
 
 		movie := Movie{
-			ID:               uuid.New().String(),
-			FileName:         filepath.Base(path),
-			FilePath:         path,
-			FileSize:         FormatFileSize(fileInfo.Size()),
-			FileSizeBytes:    fileInfo.Size(),
-			Params:           make(map[string]string),
-			ScreenshotURLs:   make([]string, 0),
-			ScreenshotURLsIB: make([]string, 0),
-			ProcessingState:  StateAnalyzingMedia,
+			ID:                uuid.New().String(),
+			FileName:          filepath.Base(path),
+			FilePath:          path,
+			FileSize:          FormatFileSize(fileInfo.Size()),
+			FileSizeBytes:     fileInfo.Size(),
+			Params:            make(map[string]string),
+			ScreenshotURLs:    make([]string, 0),
+			ScreenshotURLsIB:  make([]string, 0),
+			ScreenshotURLsHam: make([]string, 0),
+			ProcessingState:   StateAnalyzingMedia,
 		}
 
 		s.movies = append(s.movies, movie)
@@ -324,22 +343,28 @@ func (s *SpoilerService) ResetMovieStatuses() {
 		s.movies[i].ProcessingError = ""
 		s.movies[i].Errors = make([]string, 0) // Clear individual errors
 
-		// Clear processing results - Contact sheet fields
+		// Clear processing results - Fastpic fields
 		s.movies[i].ContactSheetURL = ""
 		s.movies[i].ContactSheetBigURL = ""
 		s.movies[i].ScreenshotURLs = make([]string, 0)
 		s.movies[i].ScreenshotBigURLs = make([]string, 0)
 		s.movies[i].ScreenshotAlbum = ""
 
-		// Clear imgbox results - Contact sheet fields
+		// Clear imgbox results
 		s.movies[i].ContactSheetURLIB = ""
 		s.movies[i].ContactSheetBigURLIB = ""
 		s.movies[i].ScreenshotURLsIB = make([]string, 0)
 		s.movies[i].ScreenshotBigURLsIB = make([]string, 0)
 
+		// Clear hamster results
+		s.movies[i].ContactSheetURLHam = ""
+		s.movies[i].ContactSheetBigURLHam = ""
+		s.movies[i].ScreenshotURLsHam = make([]string, 0)
+		s.movies[i].ScreenshotBigURLsHam = make([]string, 0)
 	}
 	s.emitState()
 }
+
 func (s *SpoilerService) ReorderMovies(newOrder []string) error {
 	movieMap := make(map[string]Movie)
 	for _, movie := range s.movies {
@@ -380,7 +405,7 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 	return pending
 }
 
-// Improved concurrent processing with dual uploader support
+// Improved concurrent processing with triple uploader support
 func (s *SpoilerService) processAllMoviesConcurrently() error {
 	pendingMovies := s.getPendingMovies()
 	if len(pendingMovies) == 0 {
@@ -401,6 +426,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
 	var fastpicService *img_uploaders.FastpicService
 	var imgboxService *img_uploaders.ImgboxService
+	var hamsterService *img_uploaders.HamsterService
 
 	if requirements.NeedsFastpic {
 		fastpicService = img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
@@ -416,6 +442,11 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		log.Printf("Imgbox service initialized")
 	}
 
+	if requirements.NeedsHamster {
+		hamsterService = img_uploaders.NewHamsterService(s.settings.HamsterEmail, s.settings.HamsterPassword)
+		log.Printf("Hamster service initialized")
+	}
+
 	log.Printf("Starting concurrent media processing for %d movies (screenshot limit: %d, upload limit: %d)",
 		len(pendingMovies), s.settings.MaxConcurrentScreenshots, s.settings.MaxConcurrentUploads)
 
@@ -425,7 +456,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		wg.Add(1)
 		go func(movie Movie) {
 			defer wg.Done()
-			s.processMovieWithLimits(movie, tempDir, fastpicService, imgboxService, requirements)
+			s.processMovieWithLimits(movie, tempDir, fastpicService, imgboxService, hamsterService, requirements)
 		}(movie)
 	}
 
@@ -433,7 +464,7 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 	return nil
 }
 
-func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) {
+func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) {
 	// Clear any previous errors
 	s.updateMovieByID(movie.ID, func(m *Movie) {
 		m.Errors = make([]string, 0)
@@ -483,8 +514,8 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	})
 	s.emitState()
 
-	// Upload media with concurrency limits to both services
-	err = s.uploadMediaConcurrently(movie, contactSheetPath, screenshotPaths, fastpicService, imgboxService, requirements)
+	// Upload media with concurrency limits to all services
+	err = s.uploadMediaConcurrently(movie, contactSheetPath, screenshotPaths, fastpicService, imgboxService, hamsterService, requirements)
 	if err != nil {
 		s.updateMovieByID(movie.ID, func(m *Movie) {
 			m.ProcessingState = StateError
@@ -529,7 +560,7 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	var screenshotErrors []error
 
 	// Check if we need contact sheet
-	needsContactSheet := requirements.FastpicContactSheet || requirements.ImgboxContactSheet
+	needsContactSheet := requirements.FastpicContactSheet || requirements.ImgboxContactSheet || requirements.HamsterContactSheet
 
 	// Generate contact sheet (if needed)
 	if needsContactSheet {
@@ -569,7 +600,7 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	}
 
 	// Check if we need screenshots
-	needsScreenshots := requirements.FastpicScreenshots || requirements.ImgboxScreenshots
+	needsScreenshots := requirements.FastpicScreenshots || requirements.ImgboxScreenshots || requirements.HamsterScreenshots
 
 	// Generate screenshots concurrently (each screenshot gets its own goroutine)
 	if needsScreenshots && s.settings.ScreenshotCount > 0 {
@@ -638,8 +669,8 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	return contactSheetPath, validScreenshots, nil
 }
 
-// Upload media with proper concurrency control to both services
-func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, requirements UploaderRequirements) error {
+// Upload media with proper concurrency control to all three services
+func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var uploadStarted bool // Track if any upload has actually started
@@ -722,6 +753,46 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath s
 				s.updateMovieByID(movie.ID, func(m *Movie) {
 					m.ContactSheetURLIB = result.BBThumb
 					m.ContactSheetBigURLIB = result.BBBig
+				})
+
+			case <-s.cancelCtx.Done():
+				return
+			}
+		}()
+	}
+
+	// Upload contact sheet to hamster
+	if contactSheetPath != "" && requirements.HamsterContactSheet && hamsterService != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			// Acquire upload semaphore
+			select {
+			case s.uploadSemaphore <- struct{}{}:
+				defer func() { <-s.uploadSemaphore }()
+
+				// Update to uploading state when first upload actually starts
+				mu.Lock()
+				if !uploadStarted {
+					uploadStarted = true
+					s.updateMovieByID(movie.ID, func(m *Movie) {
+						m.ProcessingState = StateUploadingScreenshots
+					})
+					s.emitState()
+				}
+				mu.Unlock()
+
+				result, err := hamsterService.UploadImage(s.cancelCtx, contactSheetPath)
+				if err != nil {
+					s.addMovieError(movie.ID, fmt.Sprintf("Hamster contact sheet upload failed: %v", err))
+					log.Printf("Failed to upload contact sheet to hamster for %s: %v", movie.FileName, err)
+					return
+				}
+
+				s.updateMovieByID(movie.ID, func(m *Movie) {
+					m.ContactSheetURLHam = result.BBThumb
+					m.ContactSheetBigURLHam = result.BBBig
 				})
 
 			case <-s.cancelCtx.Done():
@@ -825,6 +896,56 @@ func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath s
 
 						m.ScreenshotURLsIB[index] = result.BBThumb
 						m.ScreenshotBigURLsIB[index] = result.BBBig
+					})
+
+				case <-s.cancelCtx.Done():
+					return
+				}
+			}(i, screenshotPath)
+		}
+	}
+
+	// Upload screenshots to hamster
+	if requirements.HamsterScreenshots && hamsterService != nil {
+		for i, screenshotPath := range screenshotPaths {
+			wg.Add(1)
+			go func(index int, path string) {
+				defer wg.Done()
+
+				// Acquire upload semaphore
+				select {
+				case s.uploadSemaphore <- struct{}{}:
+					defer func() { <-s.uploadSemaphore }()
+
+					// Update to uploading state when first upload actually starts
+					mu.Lock()
+					if !uploadStarted {
+						uploadStarted = true
+						s.updateMovieByID(movie.ID, func(m *Movie) {
+							m.ProcessingState = StateUploadingScreenshots
+						})
+						s.emitState()
+					}
+					mu.Unlock()
+
+					result, err := hamsterService.UploadImage(s.cancelCtx, path)
+					if err != nil {
+						s.addMovieError(movie.ID, fmt.Sprintf("Hamster screenshot %d upload failed: %v", index+1, err))
+						log.Printf("Failed to upload screenshot %d to hamster for %s: %v", index+1, movie.FileName, err)
+						return
+					}
+
+					s.updateMovieByID(movie.ID, func(m *Movie) {
+						// Ensure slices are properly sized
+						for len(m.ScreenshotURLsHam) <= index {
+							m.ScreenshotURLsHam = append(m.ScreenshotURLsHam, "")
+						}
+						for len(m.ScreenshotBigURLsHam) <= index {
+							m.ScreenshotBigURLsHam = append(m.ScreenshotBigURLsHam, "")
+						}
+
+						m.ScreenshotURLsHam[index] = result.BBThumb
+						m.ScreenshotBigURLsHam[index] = result.BBBig
 					})
 
 				case <-s.cancelCtx.Done():
@@ -1046,6 +1167,20 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", "")
 	}
 
+	// Handle hamster contact sheets
+	if movie.ContactSheetURLHam != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM%", movie.ContactSheetURLHam)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM%", "")
+	}
+
+	// Handle hamster contact sheet big
+	if movie.ContactSheetBigURLHam != "" {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM_BIG%", movie.ContactSheetBigURLHam)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM_BIG%", "")
+	}
+
 	// Handle fastpic screenshots (BBThumb) with newline separator
 	fastpicScreenshots := make([]string, 0)
 	for _, url := range movie.ScreenshotURLs {
@@ -1122,6 +1257,44 @@ func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG_SPACED%", "")
 	}
 
+	// Handle hamster screenshots (BBThumb) with newline separator
+	hamsterScreenshots := make([]string, 0)
+	for _, url := range movie.ScreenshotURLsHam {
+		if url != "" {
+			hamsterScreenshots = append(hamsterScreenshots, url)
+		}
+	}
+	if len(hamsterScreenshots) > 0 {
+		screenshotsStr := strings.Join(hamsterScreenshots, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM%", screenshotsStr)
+
+		// Handle screenshots with space separator
+		screenshotsSpaced := strings.Join(hamsterScreenshots, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_SPACED%", screenshotsSpaced)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_SPACED%", "")
+	}
+
+	// Handle hamster screenshots big (BBBig) with newline separator
+	hamsterScreenshotsBig := make([]string, 0)
+	for _, url := range movie.ScreenshotBigURLsHam {
+		if url != "" {
+			hamsterScreenshotsBig = append(hamsterScreenshotsBig, url)
+		}
+	}
+	if len(hamsterScreenshotsBig) > 0 {
+		screenshotsBigStr := strings.Join(hamsterScreenshotsBig, "\n")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG%", screenshotsBigStr)
+
+		// Handle screenshots big with space separator
+		screenshotsBigSpaced := strings.Join(hamsterScreenshotsBig, " ")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG_SPACED%", screenshotsBigSpaced)
+	} else {
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG%", "")
+		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG_SPACED%", "")
+	}
+
 	// Replace parameter placeholders
 	paramPattern := regexp.MustCompile(`%[^%]+%`)
 	tmp = paramPattern.ReplaceAllStringFunc(tmp, func(param string) string {
@@ -1152,6 +1325,8 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 		Template:                 s.template,
 		MtnArgs:                  settings.MtnArgs,
 		ImageMiniatureSize:       settings.ImageMiniatureSize,
+		HamsterEmail:             settings.HamsterEmail,
+		HamsterPassword:          settings.HamsterPassword,
 	}
 
 	if err := s.configManager.UpdateConfig(config); err != nil {

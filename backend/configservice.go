@@ -21,6 +21,9 @@ type SpoilerConfig struct {
 	Template                 string `json:"template" koanf:"template"`
 	MtnArgs                  string `json:"mtnArgs" koanf:"mtn_args"`
 	ImageMiniatureSize       int    `json:"imageMiniatureSize" koanf:"image_miniature_size"`
+	// Hamster settings
+	HamsterEmail    string `json:"hamsterEmail" koanf:"hamster_email"`
+	HamsterPassword string `json:"hamsterPassword" koanf:"hamster_password"`
 }
 
 var SpoilerAppConfig SpoilerConfig
@@ -35,6 +38,8 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	Template:                 "",
 	MtnArgs:                  "-b 2 -w 1200 -c 4 -r 4 -g 0 -k 1C1C1C -L 4:2 -F F0FFFF:10",
 	ImageMiniatureSize:       350,
+	HamsterEmail:             "",
+	HamsterPassword:          "",
 }
 
 type ConfigService struct{}
@@ -176,6 +181,7 @@ func loadSpoilerAppConfig() SpoilerConfig {
 	if c.MtnArgs == "" {
 		c.MtnArgs = DefaultSpoilerConfig.MtnArgs
 	}
+	// No validation needed for hamster credentials - they can be empty
 
 	return c
 }

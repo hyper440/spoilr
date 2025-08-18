@@ -56,6 +56,8 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%CONTACT_SHEET_FP_BIG%", description: t("templateEditor.parameters.contactSheetFpBig"), category: "Contact Sheets" },
     { name: "%CONTACT_SHEET_IB%", description: t("templateEditor.parameters.contactSheetIb"), category: "Contact Sheets" },
     { name: "%CONTACT_SHEET_IB_BIG%", description: t("templateEditor.parameters.contactSheetIbBig"), category: "Contact Sheets" },
+    { name: "%CONTACT_SHEET_HAM%", description: t("templateEditor.parameters.contactSheetHam"), category: "Contact Sheets" },
+    { name: "%CONTACT_SHEET_HAM_BIG%", description: t("templateEditor.parameters.contactSheetHamBig"), category: "Contact Sheets" },
 
     // Fastpic Screenshots
     { name: "%SCREENSHOTS_FP%", description: t("templateEditor.parameters.screenshotsFp"), category: "Fastpic Screenshots" },
@@ -68,6 +70,12 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
     { name: "%SCREENSHOTS_IB_SPACED%", description: t("templateEditor.parameters.screenshotsIbSpaced"), category: "Imgbox Screenshots" },
     { name: "%SCREENSHOTS_IB_BIG%", description: t("templateEditor.parameters.screenshotsIbBig"), category: "Imgbox Screenshots" },
     { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsIbBigSpaced"), category: "Imgbox Screenshots" },
+
+    // Hamster Screenshots
+    { name: "%SCREENSHOTS_HAM%", description: t("templateEditor.parameters.screenshotsHam"), category: "Hamster Screenshots" },
+    { name: "%SCREENSHOTS_HAM_SPACED%", description: t("templateEditor.parameters.screenshotsHamSpaced"), category: "Hamster Screenshots" },
+    { name: "%SCREENSHOTS_HAM_BIG%", description: t("templateEditor.parameters.screenshotsHamBig"), category: "Hamster Screenshots" },
+    { name: "%SCREENSHOTS_HAM_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsHamBigSpaced"), category: "Hamster Screenshots" },
   ];
 
   // Group parameters by category
@@ -81,7 +89,17 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
   }, {} as Record<string, TemplateParam[]>);
 
   // Define category order
-  const categoryOrder = ["File Info", "Video", "Audio", "Contact Sheets", "Fastpic Screenshots", "Imgbox Screenshots", "Legacy", "Other"];
+  const categoryOrder = [
+    "File Info",
+    "Video",
+    "Audio",
+    "Contact Sheets",
+    "Fastpic Screenshots",
+    "Imgbox Screenshots",
+    "Hamster Screenshots",
+    "Legacy",
+    "Other",
+  ];
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -131,6 +149,8 @@ export default function TemplateEditor({ template, onTemplateChange, onResetToDe
         return "bg-orange-100 text-orange-800 hover:bg-orange-200";
       case "Imgbox Screenshots":
         return "bg-cyan-100 text-cyan-800 hover:bg-cyan-200";
+      case "Hamster Screenshots":
+        return "bg-pink-100 text-pink-800 hover:bg-pink-200";
       case "Legacy":
         return "bg-gray-100 text-gray-600 hover:bg-gray-200";
       default:
