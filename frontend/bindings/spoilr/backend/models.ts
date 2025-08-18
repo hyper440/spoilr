@@ -209,7 +209,7 @@ export class Movie {
     /**
      * State constants defined below
      */
-    "processingState": string;
+    "processingState": ProcessingState;
 
     /**
      * Error details if processing fails
@@ -308,7 +308,7 @@ export class Movie {
             this["params"] = {};
         }
         if (!("processingState" in $$source)) {
-            this["processingState"] = "";
+            this["processingState"] = ProcessingState.$zero;
         }
 
         Object.assign(this, $$source);
@@ -354,6 +354,25 @@ export class Movie {
         return new Movie($$parsedSource as Partial<Movie>);
     }
 }
+
+/**
+ * Processing state constants
+ */
+export enum ProcessingState {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    StatePending = "pending",
+    StateAnalyzingMedia = "analyzing_media",
+    StateWaitingForScreenshotSlot = "waiting_for_screenshot_slot",
+    StateGeneratingScreenshots = "generating_screenshots",
+    StateWaitingForUploadSlot = "waiting_for_upload_slot",
+    StateUploadingScreenshots = "uploading_screenshots",
+    StateCompleted = "completed",
+    StateError = "error",
+};
 
 /**
  * TemplatePreset represents a saved template configuration

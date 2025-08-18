@@ -57,16 +57,16 @@ func getDefaultPresets() []TemplatePreset {
 			ID:   "default-emp",
 			Name: "EMP Default",
 			Template: `[spoiler=%FILE_NAME% | %FILE_SIZE%]
-						File: %FILE_NAME%
-						Size: %FILE_SIZE%
-						Duration: %DURATION%
-						Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
-						Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
+File: %FILE_NAME%
+Size: %FILE_SIZE%
+Duration: %DURATION%
+Video: %VIDEO_CODEC% / %VIDEO_FPS% FPS / %WIDTH%x%HEIGHT% / %VIDEO_BIT_RATE%
+Audio: %AUDIO_CODEC% / %AUDIO_SAMPLE_RATE% / %AUDIO_CHANNELS% / %AUDIO_BIT_RATE%
 
-						%CONTACT_SHEET_HAM%
+%CONTACT_SHEET_HAM%
 
-						%SCREENSHOTS_HAM%
-						[/spoiler]`,
+%SCREENSHOTS_HAM%
+[/spoiler]`,
 		},
 	}
 }

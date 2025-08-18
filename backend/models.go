@@ -44,21 +44,23 @@ type Movie struct {
 	ScreenshotBigURLsHam  []string `json:"screenshotBigUrlsHam"`  // Individual screenshots (big)
 
 	Params          map[string]string `json:"params"`
-	ProcessingState string            `json:"processingState"`           // State constants defined below
+	ProcessingState ProcessingState   `json:"processingState"`           // State constants defined below
 	ProcessingError string            `json:"processingError,omitempty"` // Error details if processing fails
 	Errors          []string          `json:"errors,omitempty"`          // Individual errors that occurred during processing
 }
 
 // Processing state constants
+type ProcessingState string
+
 const (
-	StatePending                  = "pending"
-	StateAnalyzingMedia           = "analyzing_media"
-	StateWaitingForScreenshotSlot = "waiting_for_screenshot_slot"
-	StateGeneratingScreenshots    = "generating_screenshots"
-	StateWaitingForUploadSlot     = "waiting_for_upload_slot"
-	StateUploadingScreenshots     = "uploading_screenshots"
-	StateCompleted                = "completed"
-	StateError                    = "error"
+	StatePending                  ProcessingState = "pending"
+	StateAnalyzingMedia           ProcessingState = "analyzing_media"
+	StateWaitingForScreenshotSlot ProcessingState = "waiting_for_screenshot_slot"
+	StateGeneratingScreenshots    ProcessingState = "generating_screenshots"
+	StateWaitingForUploadSlot     ProcessingState = "waiting_for_upload_slot"
+	StateUploadingScreenshots     ProcessingState = "uploading_screenshots"
+	StateCompleted                ProcessingState = "completed"
+	StateError                    ProcessingState = "error"
 )
 
 // AppState represents the current application state

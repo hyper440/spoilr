@@ -412,142 +412,169 @@ func (s *SpoilerService) processAllMoviesConcurrently() error {
 		return nil
 	}
 
-	// Check what uploaders are needed
 	requirements := s.getUploaderRequirements()
-
-	// Create temp directory for all media
-	tempDir, err := os.MkdirTemp("", "media_processing_*")
+	tempDir, err := s.createTempDirectory()
 	if err != nil {
-		return fmt.Errorf("failed to create temp directory: %v", err)
+		return err
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Initialize required services
-	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
-	var fastpicService *img_uploaders.FastpicService
-	var imgboxService *img_uploaders.ImgboxService
-	var hamsterService *img_uploaders.HamsterService
-
-	if requirements.NeedsFastpic {
-		fastpicService = img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
-		err = fastpicService.GetFastpicUploadID(s.cancelCtx)
-		if err != nil {
-			return fmt.Errorf("failed to get fastpic upload ID: %v", err)
-		}
-		log.Printf("Fastpic service initialized")
-	}
-
-	if requirements.NeedsImgbox {
-		imgboxService = img_uploaders.NewImgboxService(imageMiniatureSize)
-		log.Printf("Imgbox service initialized")
-	}
-
-	if requirements.NeedsHamster {
-		hamsterService = img_uploaders.NewHamsterService(s.settings.HamsterEmail, s.settings.HamsterPassword)
-		log.Printf("Hamster service initialized")
+	uploaderServices, err := s.initializeUploaderServices(requirements)
+	if err != nil {
+		return err
 	}
 
 	log.Printf("Starting concurrent media processing for %d movies (screenshot limit: %d, upload limit: %d)",
 		len(pendingMovies), s.settings.MaxConcurrentScreenshots, s.settings.MaxConcurrentUploads)
 
-	// Process each movie concurrently
-	var wg sync.WaitGroup
-	for _, movie := range pendingMovies {
-		wg.Add(1)
-		go func(movie Movie) {
-			defer wg.Done()
-			s.processMovieWithLimits(movie, tempDir, fastpicService, imgboxService, hamsterService, requirements)
-		}(movie)
-	}
-
-	wg.Wait()
+	s.processMoviesConcurrently(pendingMovies, tempDir, uploaderServices, requirements)
 	return nil
 }
 
+// Create temporary directory for processing
+func (s *SpoilerService) createTempDirectory() (string, error) {
+	tempDir, err := os.MkdirTemp("", "media_processing_*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	return tempDir, nil
+}
+
+// UploaderServices holds all uploader service instances
+type UploaderServices struct {
+	Fastpic *img_uploaders.FastpicService
+	Imgbox  *img_uploaders.ImgboxService
+	Hamster *img_uploaders.HamsterService
+}
+
+// Initialize required uploader services based on requirements
+func (s *SpoilerService) initializeUploaderServices(requirements UploaderRequirements) (*UploaderServices, error) {
+	services := &UploaderServices{}
+	imageMiniatureSize := s.configManager.GetConfig().ImageMiniatureSize
+
+	if requirements.NeedsFastpic {
+		services.Fastpic = img_uploaders.NewFastpicService(s.settings.FastpicSID, imageMiniatureSize)
+		err := services.Fastpic.GetFastpicUploadID(s.cancelCtx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get fastpic upload ID: %v", err)
+		}
+		log.Printf("Fastpic service initialized")
+	}
+
+	if requirements.NeedsImgbox {
+		services.Imgbox = img_uploaders.NewImgboxService(imageMiniatureSize)
+		log.Printf("Imgbox service initialized")
+	}
+
+	if requirements.NeedsHamster {
+		services.Hamster = img_uploaders.NewHamsterService(s.settings.HamsterEmail, s.settings.HamsterPassword)
+		log.Printf("Hamster service initialized")
+	}
+
+	return services, nil
+}
+
+// Process all movies concurrently
+func (s *SpoilerService) processMoviesConcurrently(movies []Movie, tempDir string, services *UploaderServices, requirements UploaderRequirements) {
+	var wg sync.WaitGroup
+	for _, movie := range movies {
+		wg.Add(1)
+		go func(movie Movie) {
+			defer wg.Done()
+			s.processMovieWithLimits(movie, tempDir, services.Fastpic, services.Imgbox, services.Hamster, requirements)
+		}(movie)
+	}
+	wg.Wait()
+}
+
 func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) {
-	// Clear any previous errors
-	s.updateMovieByID(movie.ID, func(m *Movie) {
-		m.Errors = make([]string, 0)
-	})
+	s.clearMovieErrors(movie.ID)
+	s.updateMovieState(movie.ID, StateWaitingForScreenshotSlot)
 
-	// Update status to waiting for screenshot slot
-	s.updateMovieByID(movie.ID, func(m *Movie) {
-		m.ProcessingState = StateWaitingForScreenshotSlot
-	})
-	s.emitState()
-
-	// Create movie-specific temp directory
-	movieTempDir := filepath.Join(tempDir, movie.ID)
-	if err := os.MkdirAll(movieTempDir, 0755); err != nil {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateError
-			m.ProcessingError = fmt.Sprintf("Failed to create temp directory: %v", err)
-		})
-		s.emitState()
+	movieTempDir, err := s.createMovieTempDirectory(tempDir, movie.ID)
+	if err != nil {
+		s.setMovieError(movie.ID, fmt.Sprintf("Failed to create temp directory: %v", err))
 		return
 	}
 
-	// Generate media with proper concurrency limits
 	contactSheetPath, screenshotPaths, err := s.generateMediaConcurrently(movie, movieTempDir, requirements)
 	if err != nil {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateError
-			m.ProcessingError = fmt.Sprintf("Media generation failed: %v", err)
-		})
-		s.emitState()
+		s.setMovieError(movie.ID, fmt.Sprintf("Media generation failed: %v", err))
 		return
 	}
 
-	// Check if we have anything to upload
-	if contactSheetPath == "" && len(screenshotPaths) == 0 {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateError
-			m.ProcessingError = "No media generated"
-		})
-		s.emitState()
+	if !s.hasMediaToUpload(contactSheetPath, screenshotPaths) {
+		s.setMovieError(movie.ID, "No media generated")
 		return
 	}
 
-	// Update status to waiting for upload slot
-	s.updateMovieByID(movie.ID, func(m *Movie) {
-		m.ProcessingState = StateWaitingForUploadSlot
-	})
-	s.emitState()
+	s.updateMovieState(movie.ID, StateWaitingForUploadSlot)
 
-	// Upload media with concurrency limits to all services
 	err = s.uploadMediaConcurrently(movie, contactSheetPath, screenshotPaths, fastpicService, imgboxService, hamsterService, requirements)
 	if err != nil {
-		s.updateMovieByID(movie.ID, func(m *Movie) {
-			m.ProcessingState = StateError
-			m.ProcessingError = fmt.Sprintf("Upload failed: %v", err)
-		})
-		s.emitState()
+		s.setMovieError(movie.ID, fmt.Sprintf("Upload failed: %v", err))
 		return
 	}
 
-	// Determine final state based on whether we have errors
-	movie, exists := s.getMovieByID(movie.ID)
+	s.finalizeMovieProcessing(movie.ID)
+}
+
+// Clear previous movie errors
+func (s *SpoilerService) clearMovieErrors(movieID string) {
+	s.updateMovieByID(movieID, func(m *Movie) {
+		m.Errors = make([]string, 0)
+	})
+}
+
+// Update movie processing state
+func (s *SpoilerService) updateMovieState(movieID string, state ProcessingState) {
+	s.updateMovieByID(movieID, func(m *Movie) {
+		m.ProcessingState = state
+	})
+	s.emitState()
+}
+
+// Set movie error state
+func (s *SpoilerService) setMovieError(movieID string, errorMsg string) {
+	s.updateMovieByID(movieID, func(m *Movie) {
+		m.ProcessingState = StateError
+		m.ProcessingError = errorMsg
+	})
+	s.emitState()
+}
+
+// Create movie-specific temporary directory
+func (s *SpoilerService) createMovieTempDirectory(tempDir, movieID string) (string, error) {
+	movieTempDir := filepath.Join(tempDir, movieID)
+	if err := os.MkdirAll(movieTempDir, 0755); err != nil {
+		return "", err
+	}
+	return movieTempDir, nil
+}
+
+// Check if we have any media to upload
+func (s *SpoilerService) hasMediaToUpload(contactSheetPath string, screenshotPaths []string) bool {
+	return contactSheetPath != "" || len(screenshotPaths) > 0
+}
+
+// Finalize movie processing and set final state
+func (s *SpoilerService) finalizeMovieProcessing(movieID string) {
+	movie, exists := s.getMovieByID(movieID)
 	if !exists {
 		return
 	}
 
 	finalState := StateCompleted
 	if len(movie.Errors) > 0 {
-		// If we have individual errors but still got some results, mark as completed with warnings
 		log.Printf("Movie %s completed with %d warnings/errors", movie.FileName, len(movie.Errors))
+	} else {
+		log.Printf("Successfully processed movie: %s", movie.FileName)
 	}
 
-	// Update movie with final state
-	s.updateMovieByID(movie.ID, func(m *Movie) {
+	s.updateMovieByID(movieID, func(m *Movie) {
 		m.ProcessingState = finalState
 	})
 	s.emitState()
-
-	if len(movie.Errors) == 0 {
-		log.Printf("Successfully processed movie: %s", movie.FileName)
-	} else {
-		log.Printf("Processed movie with warnings: %s (%d issues)", movie.FileName, len(movie.Errors))
-	}
 }
 
 // Generate contact sheet and screenshots with proper concurrency control
@@ -557,412 +584,403 @@ func (s *SpoilerService) generateMediaConcurrently(movie Movie, tempDir string, 
 	var generationStarted bool
 	var contactSheetPath string
 	var screenshotPaths []string
-	var screenshotErrors []error
 
-	// Check if we need contact sheet
-	needsContactSheet := requirements.FastpicContactSheet || requirements.ImgboxContactSheet || requirements.HamsterContactSheet
+	needsContactSheet := s.needsContactSheet(requirements)
+	needsScreenshots := s.needsScreenshots(requirements)
 
-	// Generate contact sheet (if needed)
 	if needsContactSheet {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// Acquire screenshot semaphore for contact sheet generation
-			select {
-			case s.screenshotSemaphore <- struct{}{}:
-				defer func() { <-s.screenshotSemaphore }()
-
-				// Update to generating state when first generation actually starts
-				mu.Lock()
-				if !generationStarted {
-					generationStarted = true
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						m.ProcessingState = StateGeneratingScreenshots
-					})
-					s.emitState()
-				}
-				mu.Unlock()
-
-				path, err := s.generateMovieContactSheet(movie.FilePath, tempDir)
-				contactSheetPath = path
-
-				// Add error to movie's error list if contact sheet generation failed
-				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Contact sheet generation failed: %v", err))
-					log.Printf("Failed to generate contact sheet for %s: %v", movie.FileName, err)
-				}
-
-			case <-s.cancelCtx.Done():
-				return
-			}
-		}()
+		go s.generateContactSheetAsync(&wg, &mu, &generationStarted, movie, tempDir, &contactSheetPath)
 	}
 
-	// Check if we need screenshots
-	needsScreenshots := requirements.FastpicScreenshots || requirements.ImgboxScreenshots || requirements.HamsterScreenshots
-
-	// Generate screenshots concurrently (each screenshot gets its own goroutine)
 	if needsScreenshots && s.settings.ScreenshotCount > 0 {
 		screenshotPaths = make([]string, s.settings.ScreenshotCount)
-		screenshotErrors = make([]error, s.settings.ScreenshotCount)
-
-		interval := movie.Duration / float64(s.settings.ScreenshotCount+1)
-
-		for i := 0; i < s.settings.ScreenshotCount; i++ {
-			wg.Add(1)
-			go func(index int) {
-				defer wg.Done()
-
-				// Acquire screenshot semaphore
-				select {
-				case s.screenshotSemaphore <- struct{}{}:
-					defer func() { <-s.screenshotSemaphore }()
-
-					// Update to generating state when first generation actually starts
-					mu.Lock()
-					if !generationStarted {
-						generationStarted = true
-						s.updateMovieByID(movie.ID, func(m *Movie) {
-							m.ProcessingState = StateGeneratingScreenshots
-						})
-						s.emitState()
-					}
-					mu.Unlock()
-
-					timestamp := interval * float64(index+1)
-					outputPath := filepath.Join(tempDir, fmt.Sprintf("screenshot_%d.jpg", index+1))
-
-					err := s.generateScreenshot(movie.FilePath, outputPath, timestamp)
-					if err == nil {
-						screenshotPaths[index] = outputPath
-					} else {
-						// Add error to movie's error list
-						s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d generation failed: %v", index+1, err))
-						log.Printf("Failed to generate screenshot %d for %s: %v", index+1, movie.FileName, err)
-					}
-					screenshotErrors[index] = err
-
-				case <-s.cancelCtx.Done():
-					screenshotErrors[index] = s.cancelCtx.Err()
-				}
-			}(i)
-		}
+		s.generateScreenshotsAsync(&wg, &mu, &generationStarted, movie, tempDir, screenshotPaths)
 	}
 
 	wg.Wait()
 
-	// Check for cancellation
 	if s.cancelCtx.Err() != nil {
 		return "", nil, s.cancelCtx.Err()
 	}
 
-	// Filter out failed screenshots
+	validScreenshots := s.filterValidScreenshots(screenshotPaths)
+	return contactSheetPath, validScreenshots, nil
+}
+
+// Check if contact sheet is needed
+func (s *SpoilerService) needsContactSheet(requirements UploaderRequirements) bool {
+	return requirements.FastpicContactSheet || requirements.ImgboxContactSheet || requirements.HamsterContactSheet
+}
+
+// Check if screenshots are needed
+func (s *SpoilerService) needsScreenshots(requirements UploaderRequirements) bool {
+	return requirements.FastpicScreenshots || requirements.ImgboxScreenshots || requirements.HamsterScreenshots
+}
+
+// Generate contact sheet asynchronously
+func (s *SpoilerService) generateContactSheetAsync(wg *sync.WaitGroup, mu *sync.Mutex, generationStarted *bool, movie Movie, tempDir string, contactSheetPath *string) {
+	defer wg.Done()
+
+	select {
+	case s.screenshotSemaphore <- struct{}{}:
+		defer func() { <-s.screenshotSemaphore }()
+
+		s.markGenerationStarted(mu, generationStarted, movie.ID)
+
+		path, err := s.generateMovieContactSheet(movie.FilePath, tempDir)
+		*contactSheetPath = path
+
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Contact sheet generation failed: %v", err))
+			log.Printf("Failed to generate contact sheet for %s: %v", movie.FileName, err)
+		}
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Generate screenshots asynchronously
+func (s *SpoilerService) generateScreenshotsAsync(wg *sync.WaitGroup, mu *sync.Mutex, generationStarted *bool, movie Movie, tempDir string, screenshotPaths []string) {
+	interval := movie.Duration / float64(s.settings.ScreenshotCount+1)
+
+	for i := 0; i < s.settings.ScreenshotCount; i++ {
+		wg.Add(1)
+		go s.generateSingleScreenshotAsync(wg, mu, generationStarted, movie, tempDir, screenshotPaths, i, interval)
+	}
+}
+
+// Generate a single screenshot asynchronously
+func (s *SpoilerService) generateSingleScreenshotAsync(wg *sync.WaitGroup, mu *sync.Mutex, generationStarted *bool, movie Movie, tempDir string, screenshotPaths []string, index int, interval float64) {
+	defer wg.Done()
+
+	select {
+	case s.screenshotSemaphore <- struct{}{}:
+		defer func() { <-s.screenshotSemaphore }()
+
+		s.markGenerationStarted(mu, generationStarted, movie.ID)
+
+		timestamp := interval * float64(index+1)
+		outputPath := filepath.Join(tempDir, fmt.Sprintf("screenshot_%d.jpg", index+1))
+
+		err := s.generateScreenshot(movie.FilePath, outputPath, timestamp)
+		if err == nil {
+			screenshotPaths[index] = outputPath
+		} else {
+			s.addMovieError(movie.ID, fmt.Sprintf("Screenshot %d generation failed: %v", index+1, err))
+			log.Printf("Failed to generate screenshot %d for %s: %v", index+1, movie.FileName, err)
+		}
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Mark generation as started (thread-safe)
+func (s *SpoilerService) markGenerationStarted(mu *sync.Mutex, generationStarted *bool, movieID string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if !*generationStarted {
+		*generationStarted = true
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ProcessingState = StateGeneratingScreenshots
+		})
+		s.emitState()
+	}
+}
+
+// Filter out failed screenshots
+func (s *SpoilerService) filterValidScreenshots(screenshotPaths []string) []string {
 	var validScreenshots []string
 	for _, path := range screenshotPaths {
 		if path != "" {
 			validScreenshots = append(validScreenshots, path)
 		}
 	}
-
-	// Don't return error if only some screenshots failed - we collect individual errors
-	return contactSheetPath, validScreenshots, nil
+	return validScreenshots
 }
 
 // Upload media with proper concurrency control to all three services
 func (s *SpoilerService) uploadMediaConcurrently(movie Movie, contactSheetPath string, screenshotPaths []string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var uploadStarted bool // Track if any upload has actually started
+	var uploadStarted bool
 
 	baseFileName := strings.TrimSuffix(filepath.Base(movie.FilePath), filepath.Ext(movie.FilePath))
 
-	// Upload contact sheet to fastpic
-	if contactSheetPath != "" && requirements.FastpicContactSheet && fastpicService != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// Acquire upload semaphore
-			select {
-			case s.uploadSemaphore <- struct{}{}:
-				defer func() { <-s.uploadSemaphore }()
-
-				// Update to uploading state when first upload actually starts
-				mu.Lock()
-				if !uploadStarted {
-					uploadStarted = true
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						m.ProcessingState = StateUploadingScreenshots
-					})
-					s.emitState()
-				}
-				mu.Unlock()
-
-				fileName := fmt.Sprintf("%s_contact_sheet.jpg", baseFileName)
-				result, err := fastpicService.UploadToFastpic(s.cancelCtx, contactSheetPath, fileName)
-				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Fastpic contact sheet upload failed: %v", err))
-					log.Printf("Failed to upload contact sheet to fastpic for %s: %v", movie.FileName, err)
-					return
-				}
-
-				s.updateMovieByID(movie.ID, func(m *Movie) {
-					m.ContactSheetURL = result.BBThumb
-					m.ContactSheetBigURL = result.BBBig
-					if m.ScreenshotAlbum == "" {
-						m.ScreenshotAlbum = result.AlbumLink
-					}
-				})
-
-			case <-s.cancelCtx.Done():
-				return
-			}
-		}()
-	}
-
-	// Upload contact sheet to imgbox
-	if contactSheetPath != "" && requirements.ImgboxContactSheet && imgboxService != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// Acquire upload semaphore
-			select {
-			case s.uploadSemaphore <- struct{}{}:
-				defer func() { <-s.uploadSemaphore }()
-
-				// Update to uploading state when first upload actually starts
-				mu.Lock()
-				if !uploadStarted {
-					uploadStarted = true
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						m.ProcessingState = StateUploadingScreenshots
-					})
-					s.emitState()
-				}
-				mu.Unlock()
-
-				result, err := imgboxService.UploadImage(s.cancelCtx, contactSheetPath)
-				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Imgbox contact sheet upload failed: %v", err))
-					log.Printf("Failed to upload contact sheet to imgbox for %s: %v", movie.FileName, err)
-					return
-				}
-
-				s.updateMovieByID(movie.ID, func(m *Movie) {
-					m.ContactSheetURLIB = result.BBThumb
-					m.ContactSheetBigURLIB = result.BBBig
-				})
-
-			case <-s.cancelCtx.Done():
-				return
-			}
-		}()
-	}
-
-	// Upload contact sheet to hamster
-	if contactSheetPath != "" && requirements.HamsterContactSheet && hamsterService != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			// Acquire upload semaphore
-			select {
-			case s.uploadSemaphore <- struct{}{}:
-				defer func() { <-s.uploadSemaphore }()
-
-				// Update to uploading state when first upload actually starts
-				mu.Lock()
-				if !uploadStarted {
-					uploadStarted = true
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						m.ProcessingState = StateUploadingScreenshots
-					})
-					s.emitState()
-				}
-				mu.Unlock()
-
-				result, err := hamsterService.UploadImage(s.cancelCtx, contactSheetPath)
-				if err != nil {
-					s.addMovieError(movie.ID, fmt.Sprintf("Hamster contact sheet upload failed: %v", err))
-					log.Printf("Failed to upload contact sheet to hamster for %s: %v", movie.FileName, err)
-					return
-				}
-
-				s.updateMovieByID(movie.ID, func(m *Movie) {
-					m.ContactSheetURLHam = result.BBThumb
-					m.ContactSheetBigURLHam = result.BBBig
-				})
-
-			case <-s.cancelCtx.Done():
-				return
-			}
-		}()
-	}
-
-	// Upload screenshots to fastpic
-	if requirements.FastpicScreenshots && fastpicService != nil {
-		for i, screenshotPath := range screenshotPaths {
-			wg.Add(1)
-			go func(index int, path string) {
-				defer wg.Done()
-
-				// Acquire upload semaphore
-				select {
-				case s.uploadSemaphore <- struct{}{}:
-					defer func() { <-s.uploadSemaphore }()
-
-					// Update to uploading state when first upload actually starts
-					mu.Lock()
-					if !uploadStarted {
-						uploadStarted = true
-						s.updateMovieByID(movie.ID, func(m *Movie) {
-							m.ProcessingState = StateUploadingScreenshots
-						})
-						s.emitState()
-					}
-					mu.Unlock()
-
-					fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
-					result, err := fastpicService.UploadToFastpic(s.cancelCtx, path, fileName)
-					if err != nil {
-						s.addMovieError(movie.ID, fmt.Sprintf("Fastpic screenshot %d upload failed: %v", index+1, err))
-						log.Printf("Failed to upload screenshot %d to fastpic for %s: %v", index+1, movie.FileName, err)
-						return
-					}
-
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						// Ensure slices are properly sized
-						for len(m.ScreenshotURLs) <= index {
-							m.ScreenshotURLs = append(m.ScreenshotURLs, "")
-						}
-						for len(m.ScreenshotBigURLs) <= index {
-							m.ScreenshotBigURLs = append(m.ScreenshotBigURLs, "")
-						}
-
-						m.ScreenshotURLs[index] = result.BBThumb
-						m.ScreenshotBigURLs[index] = result.BBBig
-						if m.ScreenshotAlbum == "" {
-							m.ScreenshotAlbum = result.AlbumLink
-						}
-					})
-
-				case <-s.cancelCtx.Done():
-					return
-				}
-			}(i, screenshotPath)
-		}
-	}
-
-	// Upload screenshots to imgbox
-	if requirements.ImgboxScreenshots && imgboxService != nil {
-		for i, screenshotPath := range screenshotPaths {
-			wg.Add(1)
-			go func(index int, path string) {
-				defer wg.Done()
-
-				// Acquire upload semaphore
-				select {
-				case s.uploadSemaphore <- struct{}{}:
-					defer func() { <-s.uploadSemaphore }()
-
-					// Update to uploading state when first upload actually starts
-					mu.Lock()
-					if !uploadStarted {
-						uploadStarted = true
-						s.updateMovieByID(movie.ID, func(m *Movie) {
-							m.ProcessingState = StateUploadingScreenshots
-						})
-						s.emitState()
-					}
-					mu.Unlock()
-
-					result, err := imgboxService.UploadImage(s.cancelCtx, path)
-					if err != nil {
-						s.addMovieError(movie.ID, fmt.Sprintf("Imgbox screenshot %d upload failed: %v", index+1, err))
-						log.Printf("Failed to upload screenshot %d to imgbox for %s: %v", index+1, movie.FileName, err)
-						return
-					}
-
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						// Ensure slices are properly sized
-						for len(m.ScreenshotURLsIB) <= index {
-							m.ScreenshotURLsIB = append(m.ScreenshotURLsIB, "")
-						}
-						for len(m.ScreenshotBigURLsIB) <= index {
-							m.ScreenshotBigURLsIB = append(m.ScreenshotBigURLsIB, "")
-						}
-
-						m.ScreenshotURLsIB[index] = result.BBThumb
-						m.ScreenshotBigURLsIB[index] = result.BBBig
-					})
-
-				case <-s.cancelCtx.Done():
-					return
-				}
-			}(i, screenshotPath)
-		}
-	}
-
-	// Upload screenshots to hamster
-	if requirements.HamsterScreenshots && hamsterService != nil {
-		for i, screenshotPath := range screenshotPaths {
-			wg.Add(1)
-			go func(index int, path string) {
-				defer wg.Done()
-
-				// Acquire upload semaphore
-				select {
-				case s.uploadSemaphore <- struct{}{}:
-					defer func() { <-s.uploadSemaphore }()
-
-					// Update to uploading state when first upload actually starts
-					mu.Lock()
-					if !uploadStarted {
-						uploadStarted = true
-						s.updateMovieByID(movie.ID, func(m *Movie) {
-							m.ProcessingState = StateUploadingScreenshots
-						})
-						s.emitState()
-					}
-					mu.Unlock()
-
-					result, err := hamsterService.UploadImage(s.cancelCtx, path)
-					if err != nil {
-						s.addMovieError(movie.ID, fmt.Sprintf("Hamster screenshot %d upload failed: %v", index+1, err))
-						log.Printf("Failed to upload screenshot %d to hamster for %s: %v", index+1, movie.FileName, err)
-						return
-					}
-
-					s.updateMovieByID(movie.ID, func(m *Movie) {
-						// Ensure slices are properly sized
-						for len(m.ScreenshotURLsHam) <= index {
-							m.ScreenshotURLsHam = append(m.ScreenshotURLsHam, "")
-						}
-						for len(m.ScreenshotBigURLsHam) <= index {
-							m.ScreenshotBigURLsHam = append(m.ScreenshotBigURLsHam, "")
-						}
-
-						m.ScreenshotURLsHam[index] = result.BBThumb
-						m.ScreenshotBigURLsHam[index] = result.BBBig
-					})
-
-				case <-s.cancelCtx.Done():
-					return
-				}
-			}(i, screenshotPath)
-		}
-	}
+	s.uploadContactSheets(&wg, &mu, &uploadStarted, movie, contactSheetPath, baseFileName, fastpicService, imgboxService, hamsterService, requirements)
+	s.uploadScreenshots(&wg, &mu, &uploadStarted, movie, screenshotPaths, baseFileName, fastpicService, imgboxService, hamsterService, requirements)
 
 	wg.Wait()
 
-	// Check for cancellation
 	if s.cancelCtx.Err() != nil {
 		return s.cancelCtx.Err()
 	}
 
 	return nil
+}
+
+// Upload contact sheets to all required services
+func (s *SpoilerService) uploadContactSheets(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, contactSheetPath, baseFileName string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) {
+	if contactSheetPath == "" {
+		return
+	}
+
+	if requirements.FastpicContactSheet && fastpicService != nil {
+		wg.Add(1)
+		go s.uploadContactSheetToFastpic(wg, mu, uploadStarted, movie, contactSheetPath, baseFileName, fastpicService)
+	}
+
+	if requirements.ImgboxContactSheet && imgboxService != nil {
+		wg.Add(1)
+		go s.uploadContactSheetToImgbox(wg, mu, uploadStarted, movie, contactSheetPath, imgboxService)
+	}
+
+	if requirements.HamsterContactSheet && hamsterService != nil {
+		wg.Add(1)
+		go s.uploadContactSheetToHamster(wg, mu, uploadStarted, movie, contactSheetPath, hamsterService)
+	}
+}
+
+// Upload screenshots to all required services
+func (s *SpoilerService) uploadScreenshots(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPaths []string, baseFileName string, fastpicService *img_uploaders.FastpicService, imgboxService *img_uploaders.ImgboxService, hamsterService *img_uploaders.HamsterService, requirements UploaderRequirements) {
+	if requirements.FastpicScreenshots && fastpicService != nil {
+		s.uploadScreenshotsToFastpic(wg, mu, uploadStarted, movie, screenshotPaths, baseFileName, fastpicService)
+	}
+
+	if requirements.ImgboxScreenshots && imgboxService != nil {
+		s.uploadScreenshotsToImgbox(wg, mu, uploadStarted, movie, screenshotPaths, imgboxService)
+	}
+
+	if requirements.HamsterScreenshots && hamsterService != nil {
+		s.uploadScreenshotsToHamster(wg, mu, uploadStarted, movie, screenshotPaths, hamsterService)
+	}
+}
+
+// Upload contact sheet to Fastpic
+func (s *SpoilerService) uploadContactSheetToFastpic(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, contactSheetPath, baseFileName string, fastpicService *img_uploaders.FastpicService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		fileName := fmt.Sprintf("%s_contact_sheet.jpg", baseFileName)
+		result, err := fastpicService.UploadToFastpic(s.cancelCtx, contactSheetPath, fileName)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Fastpic contact sheet upload failed: %v", err))
+			log.Printf("Failed to upload contact sheet to fastpic for %s: %v", movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ContactSheetURL = result.BBThumb
+			m.ContactSheetBigURL = result.BBBig
+			if m.ScreenshotAlbum == "" {
+				m.ScreenshotAlbum = result.AlbumLink
+			}
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Upload contact sheet to Imgbox
+func (s *SpoilerService) uploadContactSheetToImgbox(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, contactSheetPath string, imgboxService *img_uploaders.ImgboxService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		result, err := imgboxService.UploadImage(s.cancelCtx, contactSheetPath)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Imgbox contact sheet upload failed: %v", err))
+			log.Printf("Failed to upload contact sheet to imgbox for %s: %v", movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ContactSheetURLIB = result.BBThumb
+			m.ContactSheetBigURLIB = result.BBBig
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Upload contact sheet to Hamster
+func (s *SpoilerService) uploadContactSheetToHamster(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, contactSheetPath string, hamsterService *img_uploaders.HamsterService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		result, err := hamsterService.UploadImage(s.cancelCtx, contactSheetPath)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Hamster contact sheet upload failed: %v", err))
+			log.Printf("Failed to upload contact sheet to hamster for %s: %v", movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			m.ContactSheetURLHam = result.BBThumb
+			m.ContactSheetBigURLHam = result.BBBig
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Mark upload as started (thread-safe)
+func (s *SpoilerService) markUploadStarted(mu *sync.Mutex, uploadStarted *bool, movieID string) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if !*uploadStarted {
+		*uploadStarted = true
+		s.updateMovieByID(movieID, func(m *Movie) {
+			m.ProcessingState = StateUploadingScreenshots
+		})
+		s.emitState()
+	}
+}
+
+// Upload screenshots to Fastpic
+func (s *SpoilerService) uploadScreenshotsToFastpic(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPaths []string, baseFileName string, fastpicService *img_uploaders.FastpicService) {
+	for i, screenshotPath := range screenshotPaths {
+		wg.Add(1)
+		go s.uploadSingleScreenshotToFastpic(wg, mu, uploadStarted, movie, screenshotPath, baseFileName, i, fastpicService)
+	}
+}
+
+// Upload screenshots to Imgbox
+func (s *SpoilerService) uploadScreenshotsToImgbox(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPaths []string, imgboxService *img_uploaders.ImgboxService) {
+	for i, screenshotPath := range screenshotPaths {
+		wg.Add(1)
+		go s.uploadSingleScreenshotToImgbox(wg, mu, uploadStarted, movie, screenshotPath, i, imgboxService)
+	}
+}
+
+// Upload screenshots to Hamster
+func (s *SpoilerService) uploadScreenshotsToHamster(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPaths []string, hamsterService *img_uploaders.HamsterService) {
+	for i, screenshotPath := range screenshotPaths {
+		wg.Add(1)
+		go s.uploadSingleScreenshotToHamster(wg, mu, uploadStarted, movie, screenshotPath, i, hamsterService)
+	}
+}
+
+// Upload single screenshot to Fastpic
+func (s *SpoilerService) uploadSingleScreenshotToFastpic(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPath, baseFileName string, index int, fastpicService *img_uploaders.FastpicService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		fileName := fmt.Sprintf("%s_screenshot_%d.jpg", baseFileName, index+1)
+		result, err := fastpicService.UploadToFastpic(s.cancelCtx, screenshotPath, fileName)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Fastpic screenshot %d upload failed: %v", index+1, err))
+			log.Printf("Failed to upload screenshot %d to fastpic for %s: %v", index+1, movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			s.ensureScreenshotSliceSize(&m.ScreenshotURLs, index)
+			s.ensureScreenshotSliceSize(&m.ScreenshotBigURLs, index)
+
+			m.ScreenshotURLs[index] = result.BBThumb
+			m.ScreenshotBigURLs[index] = result.BBBig
+			if m.ScreenshotAlbum == "" {
+				m.ScreenshotAlbum = result.AlbumLink
+			}
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Upload single screenshot to Imgbox
+func (s *SpoilerService) uploadSingleScreenshotToImgbox(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPath string, index int, imgboxService *img_uploaders.ImgboxService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		result, err := imgboxService.UploadImage(s.cancelCtx, screenshotPath)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Imgbox screenshot %d upload failed: %v", index+1, err))
+			log.Printf("Failed to upload screenshot %d to imgbox for %s: %v", index+1, movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			s.ensureScreenshotSliceSize(&m.ScreenshotURLsIB, index)
+			s.ensureScreenshotSliceSize(&m.ScreenshotBigURLsIB, index)
+
+			m.ScreenshotURLsIB[index] = result.BBThumb
+			m.ScreenshotBigURLsIB[index] = result.BBBig
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Upload single screenshot to Hamster
+func (s *SpoilerService) uploadSingleScreenshotToHamster(wg *sync.WaitGroup, mu *sync.Mutex, uploadStarted *bool, movie Movie, screenshotPath string, index int, hamsterService *img_uploaders.HamsterService) {
+	defer wg.Done()
+
+	select {
+	case s.uploadSemaphore <- struct{}{}:
+		defer func() { <-s.uploadSemaphore }()
+
+		s.markUploadStarted(mu, uploadStarted, movie.ID)
+
+		result, err := hamsterService.UploadImage(s.cancelCtx, screenshotPath)
+		if err != nil {
+			s.addMovieError(movie.ID, fmt.Sprintf("Hamster screenshot %d upload failed: %v", index+1, err))
+			log.Printf("Failed to upload screenshot %d to hamster for %s: %v", index+1, movie.FileName, err)
+			return
+		}
+
+		s.updateMovieByID(movie.ID, func(m *Movie) {
+			s.ensureScreenshotSliceSize(&m.ScreenshotURLsHam, index)
+			s.ensureScreenshotSliceSize(&m.ScreenshotBigURLsHam, index)
+
+			m.ScreenshotURLsHam[index] = result.BBThumb
+			m.ScreenshotBigURLsHam[index] = result.BBBig
+		})
+
+	case <-s.cancelCtx.Done():
+		return
+	}
+}
+
+// Ensure screenshot slice has enough capacity
+func (s *SpoilerService) ensureScreenshotSliceSize(slice *[]string, index int) {
+	for len(*slice) <= index {
+		*slice = append(*slice, "")
+	}
 }
 
 func (s *SpoilerService) generateMovieContactSheet(videoPath, tempDir string) (string, error) {
@@ -1127,184 +1145,142 @@ func (s *SpoilerService) GenerateResult() string {
 func (s *SpoilerService) generateMovieSpoiler(movie Movie) string {
 	tmp := s.template
 
-	// Replace basic placeholders
-	tmp = strings.ReplaceAll(tmp, "%FILE_NAME%", movie.FileName)
-	tmp = strings.ReplaceAll(tmp, "%FILE_SIZE%", movie.FileSize)
-	tmp = strings.ReplaceAll(tmp, "%DURATION%", movie.DurationFormatted)
-	tmp = strings.ReplaceAll(tmp, "%WIDTH%", movie.Width)
-	tmp = strings.ReplaceAll(tmp, "%HEIGHT%", movie.Height)
-	tmp = strings.ReplaceAll(tmp, "%BIT_RATE%", movie.BitRate)
-	tmp = strings.ReplaceAll(tmp, "%VIDEO_BIT_RATE%", movie.VideoBitRate)
-	tmp = strings.ReplaceAll(tmp, "%AUDIO_BIT_RATE%", movie.AudioBitRate)
-	tmp = strings.ReplaceAll(tmp, "%VIDEO_CODEC%", movie.VideoCodec)
-	tmp = strings.ReplaceAll(tmp, "%AUDIO_CODEC%", movie.AudioCodec)
+	tmp = s.replaceBasicPlaceholders(tmp, movie)
+	tmp = s.replaceContactSheetPlaceholders(tmp, movie)
+	tmp = s.replaceScreenshotPlaceholders(tmp, movie)
+	tmp = s.replaceParameterPlaceholders(tmp, movie)
 
-	// Handle fastpic contact sheets
-	if movie.ContactSheetURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", movie.ContactSheetURL)
+	return tmp
+}
+
+// Replace basic movie information placeholders
+func (s *SpoilerService) replaceBasicPlaceholders(template string, movie Movie) string {
+	replacements := map[string]string{
+		"%FILE_NAME%":      movie.FileName,
+		"%FILE_SIZE%":      movie.FileSize,
+		"%DURATION%":       movie.DurationFormatted,
+		"%WIDTH%":          movie.Width,
+		"%HEIGHT%":         movie.Height,
+		"%BIT_RATE%":       movie.BitRate,
+		"%VIDEO_BIT_RATE%": movie.VideoBitRate,
+		"%AUDIO_BIT_RATE%": movie.AudioBitRate,
+		"%VIDEO_CODEC%":    movie.VideoCodec,
+		"%AUDIO_CODEC%":    movie.AudioCodec,
+	}
+
+	for placeholder, value := range replacements {
+		template = strings.ReplaceAll(template, placeholder, value)
+	}
+
+	return template
+}
+
+// Replace contact sheet placeholders for all services
+func (s *SpoilerService) replaceContactSheetPlaceholders(template string, movie Movie) string {
+	// Fastpic contact sheets
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_FP%", movie.ContactSheetURL)
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_FP_BIG%", movie.ContactSheetBigURL)
+
+	// Imgbox contact sheets
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_IB%", movie.ContactSheetURLIB)
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_IB_BIG%", movie.ContactSheetBigURLIB)
+
+	// Hamster contact sheets
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_HAM%", movie.ContactSheetURLHam)
+	template = s.replaceIfNotEmpty(template, "%CONTACT_SHEET_HAM_BIG%", movie.ContactSheetBigURLHam)
+
+	return template
+}
+
+// Replace screenshot placeholders for all services
+func (s *SpoilerService) replaceScreenshotPlaceholders(template string, movie Movie) string {
+	template = s.replaceFastpicScreenshots(template, movie)
+	template = s.replaceImgboxScreenshots(template, movie)
+	template = s.replaceHamsterScreenshots(template, movie)
+	return template
+}
+
+// Replace Fastpic screenshot placeholders
+func (s *SpoilerService) replaceFastpicScreenshots(template string, movie Movie) string {
+	// Regular screenshots (BBThumb)
+	fastpicScreenshots := s.filterNonEmptyStrings(movie.ScreenshotURLs)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_FP%", "%SCREENSHOTS_FP_SPACED%", fastpicScreenshots)
+
+	// Big screenshots (BBBig)
+	fastpicScreenshotsBig := s.filterNonEmptyStrings(movie.ScreenshotBigURLs)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_FP_BIG%", "%SCREENSHOTS_FP_BIG_SPACED%", fastpicScreenshotsBig)
+
+	return template
+}
+
+// Replace Imgbox screenshot placeholders
+func (s *SpoilerService) replaceImgboxScreenshots(template string, movie Movie) string {
+	// Regular screenshots (BBThumb)
+	imgboxScreenshots := s.filterNonEmptyStrings(movie.ScreenshotURLsIB)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_IB%", "%SCREENSHOTS_IB_SPACED%", imgboxScreenshots)
+
+	// Big screenshots (BBBig)
+	imgboxScreenshotsBig := s.filterNonEmptyStrings(movie.ScreenshotBigURLsIB)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_IB_BIG%", "%SCREENSHOTS_IB_BIG_SPACED%", imgboxScreenshotsBig)
+
+	return template
+}
+
+// Replace Hamster screenshot placeholders
+func (s *SpoilerService) replaceHamsterScreenshots(template string, movie Movie) string {
+	// Regular screenshots (BBThumb)
+	hamsterScreenshots := s.filterNonEmptyStrings(movie.ScreenshotURLsHam)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_HAM%", "%SCREENSHOTS_HAM_SPACED%", hamsterScreenshots)
+
+	// Big screenshots (BBBig)
+	hamsterScreenshotsBig := s.filterNonEmptyStrings(movie.ScreenshotBigURLsHam)
+	template = s.replaceScreenshotGroup(template, "%SCREENSHOTS_HAM_BIG%", "%SCREENSHOTS_HAM_BIG_SPACED%", hamsterScreenshotsBig)
+
+	return template
+}
+
+// Replace screenshot group with both newline and space-separated versions
+func (s *SpoilerService) replaceScreenshotGroup(template, newlinePlaceholder, spacePlaceholder string, screenshots []string) string {
+	if len(screenshots) > 0 {
+		screenshotsStr := strings.Join(screenshots, "\n")
+		screenshotsSpaced := strings.Join(screenshots, " ")
+		template = strings.ReplaceAll(template, newlinePlaceholder, screenshotsStr)
+		template = strings.ReplaceAll(template, spacePlaceholder, screenshotsSpaced)
 	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP%", "")
+		template = strings.ReplaceAll(template, newlinePlaceholder, "")
+		template = strings.ReplaceAll(template, spacePlaceholder, "")
 	}
+	return template
+}
 
-	// Handle fastpic contact sheet big
-	if movie.ContactSheetBigURL != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", movie.ContactSheetBigURL)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_FP_BIG%", "")
-	}
-
-	// Handle imgbox contact sheets
-	if movie.ContactSheetURLIB != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", movie.ContactSheetURLIB)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB%", "")
-	}
-
-	// Handle imgbox contact sheet big
-	if movie.ContactSheetBigURLIB != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", movie.ContactSheetBigURLIB)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_IB_BIG%", "")
-	}
-
-	// Handle hamster contact sheets
-	if movie.ContactSheetURLHam != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM%", movie.ContactSheetURLHam)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM%", "")
-	}
-
-	// Handle hamster contact sheet big
-	if movie.ContactSheetBigURLHam != "" {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM_BIG%", movie.ContactSheetBigURLHam)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%CONTACT_SHEET_HAM_BIG%", "")
-	}
-
-	// Handle fastpic screenshots (BBThumb) with newline separator
-	fastpicScreenshots := make([]string, 0)
-	for _, url := range movie.ScreenshotURLs {
-		if url != "" {
-			fastpicScreenshots = append(fastpicScreenshots, url)
-		}
-	}
-	if len(fastpicScreenshots) > 0 {
-		screenshotsStr := strings.Join(fastpicScreenshots, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", screenshotsStr)
-
-		// Handle screenshots with space separator
-		screenshotsSpaced := strings.Join(fastpicScreenshots, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", screenshotsSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_SPACED%", "")
-	}
-
-	// Handle fastpic screenshots big (BBBig) with newline separator
-	fastpicScreenshotsBig := make([]string, 0)
-	for _, url := range movie.ScreenshotBigURLs {
-		if url != "" {
-			fastpicScreenshotsBig = append(fastpicScreenshotsBig, url)
-		}
-	}
-	if len(fastpicScreenshotsBig) > 0 {
-		screenshotsBigStr := strings.Join(fastpicScreenshotsBig, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", screenshotsBigStr)
-
-		// Handle screenshots big with space separator
-		screenshotsBigSpaced := strings.Join(fastpicScreenshotsBig, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", screenshotsBigSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_FP_BIG_SPACED%", "")
-	}
-
-	// Handle imgbox screenshots (BBThumb) with newline separator
-	imgboxScreenshots := make([]string, 0)
-	for _, url := range movie.ScreenshotURLsIB {
-		if url != "" {
-			imgboxScreenshots = append(imgboxScreenshots, url)
-		}
-	}
-	if len(imgboxScreenshots) > 0 {
-		screenshotsStr := strings.Join(imgboxScreenshots, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB%", screenshotsStr)
-
-		// Handle screenshots with space separator
-		screenshotsSpaced := strings.Join(imgboxScreenshots, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_SPACED%", screenshotsSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_SPACED%", "")
-	}
-
-	// Handle imgbox screenshots big (BBBig) with newline separator
-	imgboxScreenshotsBig := make([]string, 0)
-	for _, url := range movie.ScreenshotBigURLsIB {
-		if url != "" {
-			imgboxScreenshotsBig = append(imgboxScreenshotsBig, url)
-		}
-	}
-	if len(imgboxScreenshotsBig) > 0 {
-		screenshotsBigStr := strings.Join(imgboxScreenshotsBig, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG%", screenshotsBigStr)
-
-		// Handle screenshots big with space separator
-		screenshotsBigSpaced := strings.Join(imgboxScreenshotsBig, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG_SPACED%", screenshotsBigSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_IB_BIG_SPACED%", "")
-	}
-
-	// Handle hamster screenshots (BBThumb) with newline separator
-	hamsterScreenshots := make([]string, 0)
-	for _, url := range movie.ScreenshotURLsHam {
-		if url != "" {
-			hamsterScreenshots = append(hamsterScreenshots, url)
-		}
-	}
-	if len(hamsterScreenshots) > 0 {
-		screenshotsStr := strings.Join(hamsterScreenshots, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM%", screenshotsStr)
-
-		// Handle screenshots with space separator
-		screenshotsSpaced := strings.Join(hamsterScreenshots, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_SPACED%", screenshotsSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_SPACED%", "")
-	}
-
-	// Handle hamster screenshots big (BBBig) with newline separator
-	hamsterScreenshotsBig := make([]string, 0)
-	for _, url := range movie.ScreenshotBigURLsHam {
-		if url != "" {
-			hamsterScreenshotsBig = append(hamsterScreenshotsBig, url)
-		}
-	}
-	if len(hamsterScreenshotsBig) > 0 {
-		screenshotsBigStr := strings.Join(hamsterScreenshotsBig, "\n")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG%", screenshotsBigStr)
-
-		// Handle screenshots big with space separator
-		screenshotsBigSpaced := strings.Join(hamsterScreenshotsBig, " ")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG_SPACED%", screenshotsBigSpaced)
-	} else {
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG%", "")
-		tmp = strings.ReplaceAll(tmp, "%SCREENSHOTS_HAM_BIG_SPACED%", "")
-	}
-
-	// Replace parameter placeholders
+// Replace parameter placeholders with movie-specific parameters
+func (s *SpoilerService) replaceParameterPlaceholders(template string, movie Movie) string {
 	paramPattern := regexp.MustCompile(`%[^%]+%`)
-	tmp = paramPattern.ReplaceAllStringFunc(tmp, func(param string) string {
+	return paramPattern.ReplaceAllStringFunc(template, func(param string) string {
 		if value, exists := movie.Params[param]; exists && value != "" {
 			return value
 		}
 		return "−"
 	})
+}
 
-	return tmp
+// Helper function to replace placeholder only if value is not empty
+func (s *SpoilerService) replaceIfNotEmpty(template, placeholder, value string) string {
+	if value != "" {
+		return strings.ReplaceAll(template, placeholder, value)
+	}
+	return strings.ReplaceAll(template, placeholder, "")
+}
+
+// Helper function to filter out empty strings from slice
+func (s *SpoilerService) filterNonEmptyStrings(urls []string) []string {
+	var filtered []string
+	for _, url := range urls {
+		if url != "" {
+			filtered = append(filtered, url)
+		}
+	}
+	return filtered
 }
 
 // Settings management
