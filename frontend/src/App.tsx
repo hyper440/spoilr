@@ -15,15 +15,7 @@ function AppContent() {
     processing: false,
     movies: [],
   });
-  const [settings, setSettings] = useState<AppSettings>({
-    imageMiniatureSize: 350,
-    screenshotCount: 6,
-    fastpicSid: "",
-    screenshotQuality: 2,
-    maxConcurrentScreenshots: 3,
-    maxConcurrentUploads: 2,
-    mtnArgs: "",
-  });
+  const [settings, setSettings] = useState<AppSettings>({} as AppSettings);
   const [template, setTemplate] = useState("");
 
   useEffect(() => {
