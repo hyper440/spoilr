@@ -101,8 +101,8 @@ func main() {
 		URL:               "/",
 		Width:             1200,
 		Height:            800,
-		// MinWidth:          1200,
-		// MinHeight:         800,
+		MaxWidth:          1200,
+		MaxHeight:         800,
 	})
 
 	// Handle drag and drop events
