@@ -10,7 +10,7 @@ A desktop app for creating formatted movie/video spoiler posts with automatic sc
 - **Auto Analysis** - Extract resolution, codecs, bitrates, duration
 - **Screenshot Generation** - Configurable count and quality
 - **Thumbnail Grids** - Generate movie thumbnails (requires MTN)
-- **FastPic Integration** - Automatic image upload and BBCode generation
+- **Image upload** - Automatic image uploads to FastPic, ImgBox, Hamster
 - **Custom Templates** - Customize output format with variable placeholders
 - **Concurrent Processing** - Parallel screenshot generation and uploads
 
