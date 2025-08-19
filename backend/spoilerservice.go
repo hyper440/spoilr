@@ -1320,10 +1320,6 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 }
 
 func (s *SpoilerService) parseMtnArgs() []string {
-	if s.settings.MtnArgs == "" {
-		// Return default args if empty
-		return []string{"-b", "2", "-w", "1200", "-c", "4", "-r", "4", "-g", "0", "-k", "1C1C1C", "-L", "4:2", "-F", "F0FFFF:10"}
-	}
 
 	// Simple argument parsing - split on spaces but handle quoted arguments
 	args := []string{}
