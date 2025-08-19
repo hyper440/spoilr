@@ -153,37 +153,20 @@ func (g *ConfigService) UpdateConfig(config SpoilerConfig) error {
 func (g *ConfigService) SaveTemplatePreset(preset TemplatePreset) error {
 	config := g.GetConfig()
 
-	// Limit to 5 presets
-	if len(config.TemplatePresets) >= 5 {
-		// Check if this is an update to existing preset
-		found := false
-		for i, p := range config.TemplatePresets {
-			if p.ID == preset.ID {
-				config.TemplatePresets[i] = preset
-				found = true
-				break
-			}
+	found := false
+	for i, p := range config.TemplatePresets {
+		if p.ID == preset.ID {
+			config.TemplatePresets[i] = preset
+			found = true
+			break
 		}
-		if !found {
-			return fmt.Errorf("maximum of 5 template presets allowed")
+	}
+	if !found {
+		// Generate ID if not provided
+		if preset.ID == "" {
+			preset.ID = uuid.New().String()
 		}
-	} else {
-		// Check if updating existing preset
-		found := false
-		for i, p := range config.TemplatePresets {
-			if p.ID == preset.ID {
-				config.TemplatePresets[i] = preset
-				found = true
-				break
-			}
-		}
-		if !found {
-			// Generate ID if not provided
-			if preset.ID == "" {
-				preset.ID = uuid.New().String()
-			}
-			config.TemplatePresets = append(config.TemplatePresets, preset)
-		}
+		config.TemplatePresets = append(config.TemplatePresets, preset)
 	}
 
 	return g.UpdateConfig(config)
