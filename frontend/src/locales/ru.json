@@ -10,8 +10,13 @@
         "title": "Редактор шаблонов",
         "resetToDefault": "Сбросить по умолчанию",
         "saveTemplate": "Сохранить изменения",
+        "saveAsPreset": "Сохранить как пресет",
+        "newPresetName": "Введите название пресета...",
         "placeholder": "Введите ваш шаблон здесь...",
         "availableParameters": "Доступные параметры:",
+        "editTemplate": "Шаблон",
+        "presetName": "Название пресета",
+        "parametersLabel": "Параметры",
         "parameters": {
             "fileName": "Исходное имя видеофайла",
             "fileSize": "Размер файла в читаемом формате (например, 1.2 Gb)",
@@ -27,22 +32,24 @@
             "videoFpsFractional": "Частота кадров видео в дробном формате (например, 60000/1001)",
             "audioSampleRate": "Частота дискретизации аудио (например, 44.1 kHz)",
             "audioChannels": "Количество аудиоканалов (например, 2 channels)",
-            "screenshots": "Отдельные скриншоты (миниатюры), разделенные переносами строк",
-            "screenshotsSpaced": "Отдельные скриншоты (миниатюры), разделенные пробелами",
-            "screenshotsBig": "Отдельные скриншоты (полный размер), разделенные переносами строк",
-            "screenshotsBigSpaced": "Отдельные скриншоты (полный размер), разделенные пробелами",
             "contactSheetFp": "Контактный лист Fastpic (BBCode)",
             "contactSheetFpBig": "Контактный лист (полный размер) Fastpic (BBCode)",
+            "contactSheetIb": "Контактный лист Imgbox (BBCode)",
+            "contactSheetIbBig": "Контактный лист (полный размер) Imgbox (BBCode)",
+            "contactSheetHam": "Контактный лист Hamster (BBCode)",
+            "contactSheetHamBig": "Контактный лист (полный размер) Hamster (BBCode)",
             "screenshotsFp": "Скриншоты Fastpic (разделенные переносами строк)",
             "screenshotsFpSpaced": "Скриншоты Fastpic (разделенные пробелами)",
             "screenshotsFpBig": "Полноразмерные скриншоты Fastpic (разделенные переносами строк)",
             "screenshotsFpBigSpaced": "Полноразмерные скриншоты Fastpic (разделенные пробелами)",
-            "contactSheetIb": "Контактный лист Imgbox (BBCode)",
-            "contactSheetIbBig": "Контактный лист (полный размер) Imgbox (BBCode)",
             "screenshotsIb": "Скриншоты Imgbox (разделенные переносами строк)",
             "screenshotsIbSpaced": "Скриншоты Imgbox (разделенные пробелами)",
             "screenshotsIbBig": "Полноразмерные скриншоты Imgbox (разделенные переносами строк)",
-            "screenshotsIbBigSpaced": "Полноразмерные скриншоты Imgbox (разделенные пробелами)"
+            "screenshotsIbBigSpaced": "Полноразмерные скриншоты Imgbox (разделенные пробелами)",
+            "screenshotsHam": "Скриншоты Hamster (разделенные переносами строк)",
+            "screenshotsHamSpaced": "Скриншоты Hamster (разделенные пробелами)",
+            "screenshotsHamBig": "Полноразмерные скриншоты Hamster (разделенные переносами строк)",
+            "screenshotsHamBigSpaced": "Полноразмерные скриншоты Hamster (разделенные пробелами)"
         }
     },
     "settings": {
@@ -61,7 +68,7 @@
         "hamsterEmailPlaceholder": "Ваш email для Hamster",
         "hamsterPassword": "Пароль Hamster",
         "hamsterPasswordPlaceholder": "Ваш пароль для Hamster",
-        "hamsterDescription": "Данные для авторизации в Hamster для загрузки скриншотов"
+        "hamsterDescription": "Данные для авторизации в Hamster для загрузки изображений"
     },
     "movieTable": {
         "title": "Файлы",

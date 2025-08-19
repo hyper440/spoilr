@@ -7,6 +7,7 @@
         "settings": "Settings"
     },
     "templateEditor": {
+        "editTemplate": "Template",
         "title": "Template Editor",
         "resetToDefault": "Reset to Default",
         "saveTemplate": "Save Edits",
@@ -14,6 +15,8 @@
         "newPresetName": "Enter New Preset Name...",
         "placeholder": "Enter your template here...",
         "availableParameters": "Available parameters:",
+        "presetName": "Preset name",
+        "parametersLabel": "Parameters",
         "parameters": {
             "fileName": "Original filename of the video file",
             "fileSize": "File size in human-readable format (e.g., 1.2 GB)",
@@ -29,22 +32,24 @@
             "videoFpsFractional": "Video framerate in fractional format (e.g., 60000/1001)",
             "audioSampleRate": "Audio sample rate (e.g., 44.1 kHz)",
             "audioChannels": "Audio channel count (e.g., 2 channels)",
-            "screenshots": "Individual screenshots (small preview) separated by newlines",
-            "screenshotsSpaced": "Individual screenshots (small preview) separated by spaces",
-            "screenshotsBig": "Individual screenshots (fullsize) separated by newlines",
-            "screenshotsBigSpaced": "Individual screenshots (fullsize) separated by spaces",
             "contactSheetFp": "Fastpic contact sheet (BBCode)",
             "contactSheetFpBig": "Fastpic contact sheet big (BBCode)",
+            "contactSheetIb": "Imgbox contact sheet (BBCode)",
+            "contactSheetIbBig": "Imgbox contact sheet big (BBCode)",
+            "contactSheetHam": "Hamster contact sheet (BBCode)",
+            "contactSheetHamBig": "Hamster contact sheet big (BBCode)",
             "screenshotsFp": "Fastpic screenshots (newline separated)",
             "screenshotsFpSpaced": "Fastpic screenshots (space separated)",
             "screenshotsFpBig": "Fastpic screenshots big (newline separated)",
             "screenshotsFpBigSpaced": "Fastpic screenshots big (space separated)",
-            "contactSheetIb": "Imgbox contact sheet (BBCode)",
-            "contactSheetIbBig": "Imgbox contact sheet big (BBCode)",
             "screenshotsIb": "Imgbox screenshots (newline separated)",
             "screenshotsIbSpaced": "Imgbox screenshots (space separated)",
             "screenshotsIbBig": "Imgbox screenshots big (newline separated)",
-            "screenshotsIbBigSpaced": "Imgbox screenshots big (space separated)"
+            "screenshotsIbBigSpaced": "Imgbox screenshots big (space separated)",
+            "screenshotsHam": "Hamster screenshots (newline separated)",
+            "screenshotsHamSpaced": "Hamster screenshots (space separated)",
+            "screenshotsHamBig": "Hamster screenshots big (newline separated)",
+            "screenshotsHamBigSpaced": "Hamster screenshots big (space separated)"
         }
     },
     "settings": {
@@ -63,7 +68,7 @@
         "hamsterEmailPlaceholder": "Your Hamster email",
         "hamsterPassword": "Hamster Password",
         "hamsterPasswordPlaceholder": "Your Hamster password",
-        "hamsterDescription": "Hamster credentials for uploading screenshots"
+        "hamsterDescription": "Hamster credentials for uploading images"
     },
     "movieTable": {
         "title": "Files",

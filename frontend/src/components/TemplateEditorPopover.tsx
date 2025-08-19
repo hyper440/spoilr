@@ -192,14 +192,14 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-        <AnimatedText>Edit Template</AnimatedText>
+        <AnimatedText>{t("templateEditor.editTemplate")}</AnimatedText>
       </PopoverTrigger>
       <PopoverContent className="w-[800px] p-4" side="bottom" align="end">
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h4 className="font-medium text-sm">Template Editor</h4>
+              <h4 className="font-medium text-sm">{t("templateEditor.title")}</h4>
             </div>
 
             <div className="flex items-center gap-2">
@@ -207,12 +207,12 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
               {!showNewPreset ? (
                 <Button variant="outline" size="sm" onClick={() => setShowNewPreset(true)} className="h-8 px-2">
                   <Plus className="w-3 h-3 mr-1" />
-                  Save as Preset
+                  {t("templateEditor.saveAsPreset")}
                 </Button>
               ) : (
                 <div className="flex gap-1">
                   <Input
-                    placeholder="Preset name"
+                    placeholder={t("templateEditor.presetName")}
                     value={newPresetName}
                     onChange={(e) => setNewPresetName(e.target.value)}
                     className="h-6 text-xs w-45"
@@ -244,11 +244,11 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
               )}
               <Button variant="outline" size="sm" onClick={onResetTemplate} className="h-8 px-2">
                 <RotateCcw className="w-3 h-3 mr-1" />
-                Reset to default
+                {t("templateEditor.resetToDefault")}
               </Button>
               <Button onClick={handleSaveTemplate} size="sm" className="h-8">
                 <Save className="w-4 h-4" />
-                Save Edits
+                {t("templateEditor.saveTemplate")}
               </Button>
             </div>
           </div>
@@ -293,12 +293,12 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
             onKeyUp={handleTextareaSelect}
             onClick={handleTextareaSelect}
             className="min-h-[100px] font-mono text-sm resize-none"
-            placeholder="Enter your template here..."
+            placeholder={t("templateEditor.placeholder")}
           />
 
           {/* Parameters Tabs */}
           <div className="space-y-2">
-            <div className="text-xs text-muted-foreground font-medium">Parameters</div>
+            <div className="text-xs text-muted-foreground font-medium">{t("templateEditor.parametersLabel")}</div>
             <Tabs defaultValue={categoryOrder[0]} className="w-full">
               <TabsList className="flex w-full h-auto flex-wrap justify-start">
                 {categoryOrder.map((category) => {
