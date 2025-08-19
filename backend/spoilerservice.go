@@ -22,7 +22,6 @@ type SpoilerService struct {
 	app                 *application.App
 	movies              []Movie
 	settings            AppSettings
-	template            string
 	processing          bool
 	cancelCtx           context.Context
 	cancelFn            context.CancelFunc
