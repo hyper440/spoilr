@@ -78,7 +78,6 @@
         "reset": "Reset",
         "copyAll": "Copy All",
         "resetTooltip": "Reset statuses to Pending",
-        "spoilerPreview": "Spoiler Preview",
         "loading": "Loading...",
         "headers": {
             "index": "#",

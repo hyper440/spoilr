@@ -193,8 +193,18 @@ export default function MovieTable({
                     <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
                   </HoverCardTrigger>
                   <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-white">{t("movieTable.spoilerPreview")}</h4>
+                    <div className="space-y-2 flex">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="hover:bg-green-500/20 hover:text-green-400"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCopyMovieResult(movie.id);
+                        }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
                       <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono bg-black/40 p-3 rounded border border-white/5 max-h-60 overflow-y-auto">
                         {localSpoilers[movie.id] || t("movieTable.loading")}
                       </pre>
