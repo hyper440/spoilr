@@ -186,7 +186,7 @@ export default function MovieTable({
         const movie = row.original;
         return (
           <div className="font-medium text-white">
-            <div className="max-w-[500px] truncate">
+            <div className="max-w-[400px] truncate">
               {movie.processingState === "completed" ? (
                 <HoverCard>
                   <HoverCardTrigger asChild>
