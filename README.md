@@ -24,7 +24,7 @@ A desktop app for creating formatted movie/video spoiler posts with automatic sc
 ## Requirements
 
 - FFmpeg (ffmpeg, ffprobe)
-- [MTN](https://gitlab.com/movie_thumbnailer/mtn) (optional, for thumbnails)
+- [MTN](https://gitlab.com/movie_thumbnailer/mtn/-/releases) (optional, for thumbnails)
 - FastPic cookie (optional, for uploads to account)
 
 ## Usage
