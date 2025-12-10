@@ -96,8 +96,6 @@ func main() {
 		Title:             "Spoilr",
 		EnableDragAndDrop: true,
 		DisableResize:     true,
-		BackgroundColour:  application.NewRGBA(0, 0, 0, 0),
-		BackgroundType:    application.BackgroundTypeTranslucent,
 		URL:               "/",
 		Width:             1200,
 		Height:            800,
