@@ -68,7 +68,13 @@
         "hamsterEmailPlaceholder": "Ваш email для Hamster",
         "hamsterPassword": "Пароль Hamster",
         "hamsterPasswordPlaceholder": "Ваш пароль для Hamster",
-        "hamsterDescription": "Данные для авторизации в Hamster для загрузки изображений"
+        "hamsterDescription": "Данные для авторизации в Hamster для загрузки изображений",
+        "saveMedia": "Сохранять сгенерированные медиа",
+        "saveMediaDescription": "Сохранять скриншоты и контактные листы в локальную папку",
+        "saveMediaDirectory": "Папка сохранения",
+        "saveMediaDirectoryPlaceholder": "Папка не выбрана",
+        "selectDirectory": "Обзор",
+        "clearDirectory": "Очистить"
     },
     "movieTable": {
         "title": "Файлы",

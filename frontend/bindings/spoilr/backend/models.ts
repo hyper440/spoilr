@@ -40,6 +40,12 @@ export class AppSettings {
      */
     "hamsterPassword": string;
 
+    /**
+     * Save media settings
+     * Directory to save generated media (empty = disabled)
+     */
+    "saveMediaDirectory": string;
+
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("screenshotCount" in $$source)) {
@@ -68,6 +74,9 @@ export class AppSettings {
         }
         if (!("hamsterPassword" in $$source)) {
             this["hamsterPassword"] = "";
+        }
+        if (!("saveMediaDirectory" in $$source)) {
+            this["saveMediaDirectory"] = "";
         }
 
         Object.assign(this, $$source);

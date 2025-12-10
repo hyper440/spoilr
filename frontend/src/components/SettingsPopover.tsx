@@ -4,9 +4,12 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { AppSettings } from "@bindings/spoilr/backend";
+import * as SpoilerService from "@bindings/spoilr/backend/spoilerservice";
 import { useTranslation } from "@/contexts/LanguageContext";
 import AnimatedText from "@/components/AnimatedText";
+import { FolderOpen, X } from "lucide-react";
 
 interface SettingsPopoverProps {
   settings: AppSettings;
@@ -153,6 +156,47 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                   className="w-full text-xs font-mono"
                 />
                 <p className="text-xs text-muted-foreground">{t("settings.mtnArgsDescription")}</p>
+              </div>
+
+              <Separator />
+
+              {/* Save Media Settings */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t("settings.saveMedia")}</Label>
+                <p className="text-xs text-muted-foreground">{t("settings.saveMediaDescription")}</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={settings.saveMediaDirectory || ""}
+                    readOnly
+                    placeholder={t("settings.saveMediaDirectoryPlaceholder")}
+                    className="flex-1 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const dir = await SpoilerService.SelectSaveMediaDirectory();
+                        if (dir) {
+                          onUpdateSettings({ saveMediaDirectory: dir });
+                        }
+                      } catch (err) {
+                        console.error("Failed to select directory:", err);
+                      }
+                    }}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </Button>
+                  {settings.saveMediaDirectory && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUpdateSettings({ saveMediaDirectory: "" })}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

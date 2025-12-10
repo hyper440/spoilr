@@ -26,6 +26,8 @@ type SpoilerConfig struct {
 	// Hamster settings
 	HamsterEmail    string `json:"hamsterEmail" koanf:"hamster_email"`
 	HamsterPassword string `json:"hamsterPassword" koanf:"hamster_password"`
+	// Save media settings
+	SaveMediaDirectory string `json:"saveMediaDirectory" koanf:"save_media_directory"` // Empty = disabled
 }
 
 var SpoilerAppConfig SpoilerConfig
@@ -82,6 +84,7 @@ var DefaultSpoilerConfig = SpoilerConfig{
 	ImageMiniatureSize:       350,
 	HamsterEmail:             "",
 	HamsterPassword:          "",
+	SaveMediaDirectory:       "",
 }
 
 type ConfigService struct{}

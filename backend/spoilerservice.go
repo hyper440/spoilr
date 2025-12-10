@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -60,6 +61,7 @@ func NewSpoilerService() *SpoilerService {
 			ImageMiniatureSize:       config.ImageMiniatureSize,
 			HamsterEmail:             config.HamsterEmail,
 			HamsterPassword:          config.HamsterPassword,
+			SaveMediaDirectory:       config.SaveMediaDirectory,
 		},
 		processing:    false,
 		configManager: configManager,
@@ -513,6 +515,11 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 	if !s.hasMediaToUpload(contactSheetPath, screenshotPaths) {
 		s.setMovieError(movie.ID, "No media generated")
 		return
+	}
+
+	// Save media to directory if enabled (before upload, while files still exist in temp)
+	if err := s.saveMediaToDirectory(movie, contactSheetPath, screenshotPaths); err != nil {
+		s.addMovieError(movie.ID, fmt.Sprintf("Failed to save media to directory: %v", err))
 	}
 
 	s.updateMovieState(movie.ID, StateWaitingForUploadSlot)
@@ -1310,12 +1317,119 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 	config.ImageMiniatureSize = settings.ImageMiniatureSize
 	config.HamsterEmail = settings.HamsterEmail
 	config.HamsterPassword = settings.HamsterPassword
+	config.SaveMediaDirectory = settings.SaveMediaDirectory
 
 	if err := s.configManager.UpdateConfig(config); err != nil {
 		log.Printf("Failed to save settings: %v", err)
 	}
 
 	s.initSemaphores() // Reinitialize semaphores with new limits
+}
+
+// SelectSaveMediaDirectory opens a directory picker dialog and returns the selected path
+func (s *SpoilerService) SelectSaveMediaDirectory() (string, error) {
+	// Use Wails OpenFileDialog with CanChooseDirectories to pick a folder
+	selectedDir, err := application.OpenFileDialog().
+		SetTitle("Select Save Media Directory").
+		CanChooseDirectories(true).
+		CanChooseFiles(false).
+		CanCreateDirectories(true).
+		PromptForSingleSelection()
+
+	if err != nil {
+		return "", err
+	}
+
+	// If user cancelled, return empty string (not an error)
+	if selectedDir == "" {
+		return "", nil
+	}
+
+	// Validate directory is writable
+	testFile := filepath.Join(selectedDir, ".spoilr_test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		return "", fmt.Errorf("directory is not writable: %v", err)
+	}
+	os.Remove(testFile)
+
+	return selectedDir, nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, sourceFile)
+	return err
+}
+
+// saveMediaToDirectory saves generated media files to the configured directory
+func (s *SpoilerService) saveMediaToDirectory(movie Movie, contactSheetPath string, screenshotPaths []string) error {
+	if s.settings.SaveMediaDirectory == "" {
+		return nil
+	}
+
+	// Create a subdirectory for this movie based on its filename (without extension)
+	movieName := strings.TrimSuffix(movie.FileName, filepath.Ext(movie.FileName))
+	// Sanitize the movie name for use as a directory name
+	movieName = sanitizeFileName(movieName)
+	movieDir := filepath.Join(s.settings.SaveMediaDirectory, movieName)
+
+	if err := os.MkdirAll(movieDir, 0755); err != nil {
+		return fmt.Errorf("failed to create movie directory: %v", err)
+	}
+
+	// Copy contact sheet if it exists
+	if contactSheetPath != "" {
+		destPath := filepath.Join(movieDir, "contact_sheet.jpg")
+		if err := copyFile(contactSheetPath, destPath); err != nil {
+			log.Printf("Failed to save contact sheet for %s: %v", movie.FileName, err)
+		} else {
+			log.Printf("Saved contact sheet to %s", destPath)
+		}
+	}
+
+	// Copy screenshots
+	for i, screenshotPath := range screenshotPaths {
+		if screenshotPath == "" {
+			continue
+		}
+		destPath := filepath.Join(movieDir, fmt.Sprintf("screenshot_%02d.jpg", i+1))
+		if err := copyFile(screenshotPath, destPath); err != nil {
+			log.Printf("Failed to save screenshot %d for %s: %v", i+1, movie.FileName, err)
+		} else {
+			log.Printf("Saved screenshot to %s", destPath)
+		}
+	}
+
+	return nil
+}
+
+// sanitizeFileName removes or replaces characters that are invalid in file/directory names
+func sanitizeFileName(name string) string {
+	// Replace invalid characters with underscores
+	invalidChars := []string{"<", ">", ":", "\"", "/", "\\", "|", "?", "*"}
+	result := name
+	for _, char := range invalidChars {
+		result = strings.ReplaceAll(result, char, "_")
+	}
+	// Trim trailing spaces and dots (Windows doesn't allow them at the end)
+	result = strings.TrimRight(result, " .")
+	// Limit length to 200 characters to avoid path length issues
+	if len(result) > 200 {
+		result = result[:200]
+	}
+	return result
 }
 
 func (s *SpoilerService) parseMtnArgs() []string {

@@ -97,6 +97,13 @@ export function SaveTemplatePreset(name: string, template: string): $Cancellable
     });
 }
 
+/**
+ * SelectSaveMediaDirectory opens a directory picker dialog and returns the selected path
+ */
+export function SelectSaveMediaDirectory(): $CancellablePromise<string> {
+    return $Call.ByID(1666802570);
+}
+
 export function SetApp(app: application$0.App | null): $CancellablePromise<void> {
     return $Call.ByID(1525544291, app);
 }
