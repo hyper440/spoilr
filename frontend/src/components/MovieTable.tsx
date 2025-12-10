@@ -376,21 +376,6 @@ export default function MovieTable({
             {t("movieTable.title")} ({movies.length})
           </CardTitle>
           <div className="flex items-center gap-2">
-            {pendingCount > 0 && !processing && (
-              <Button onClick={onStartProcessing} className="bg-gradient-to-r from-green-600 to-emerald-600">
-                {t("movieTable.startProcessing")} ({pendingCount})
-              </Button>
-            )}
-            {processing && (
-              <Button onClick={onCancelProcessing} variant="outline" className="border-red-400/50 text-red-400 hover:bg-red-500/20">
-                {t("movieTable.cancel")}
-              </Button>
-            )}
-            {!processing && (
-              <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
-                {t("movieTable.clearAll")}
-              </Button>
-            )}
             {movies.length !== pendingCount && !processing && (
               <Tooltip>
                 <TooltipTrigger>
@@ -404,6 +389,21 @@ export default function MovieTable({
                 </TooltipTrigger>
                 <TooltipContent>{t("movieTable.resetTooltip")}</TooltipContent>
               </Tooltip>
+            )}
+            {!processing && (
+              <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
+                {t("movieTable.clearAll")}
+              </Button>
+            )}
+            {pendingCount > 0 && !processing && (
+              <Button onClick={onStartProcessing} className="bg-gradient-to-r from-green-600 to-emerald-600">
+                {t("movieTable.startProcessing")} ({pendingCount})
+              </Button>
+            )}
+            {processing && (
+              <Button onClick={onCancelProcessing} variant="outline" className="border-red-400/50 text-red-400 hover:bg-red-500/20">
+                {t("movieTable.cancel")}
+              </Button>
             )}
             {completedMovies.length > 0 && (
               <Button onClick={onCopyAllResults} className="bg-gradient-to-r from-green-600 to-emerald-600">
