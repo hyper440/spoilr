@@ -68,7 +68,13 @@
         "hamsterEmailPlaceholder": "Your Hamster email",
         "hamsterPassword": "Hamster Password",
         "hamsterPasswordPlaceholder": "Your Hamster password",
-        "hamsterDescription": "Hamster credentials for uploading images"
+        "hamsterDescription": "Hamster credentials for uploading images",
+        "saveMedia": "Save Generated Media",
+        "saveMediaDescription": "Save screenshots and contact sheets to a local directory",
+        "saveMediaDirectory": "Save Directory",
+        "saveMediaDirectoryPlaceholder": "No directory selected",
+        "selectDirectory": "Browse",
+        "clearDirectory": "Clear"
     },
     "movieTable": {
         "title": "Files",

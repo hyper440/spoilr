@@ -88,6 +88,8 @@ type AppSettings struct {
 	// Hamster settings
 	HamsterEmail    string `json:"hamsterEmail"`    // Hamster.is email
 	HamsterPassword string `json:"hamsterPassword"` // Hamster.is password
+	// Save media settings
+	SaveMediaDirectory string `json:"saveMediaDirectory"` // Directory to save generated media (empty = disabled)
 }
 
 // TemplateData represents data for template processing
