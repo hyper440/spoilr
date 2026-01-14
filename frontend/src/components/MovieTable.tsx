@@ -1,16 +1,15 @@
-import { useState, useEffect } from "react";
-import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Trash2, Copy, FileVideo2Icon, AlertCircle, AlertTriangle } from "lucide-react";
-import { SpoilerService, Movie } from "@bindings/spoilr/backend";
 import { useTranslation } from "@/contexts/LanguageContext";
+import { Movie, SpoilerService } from "@bindings/spoilr/backend";
+import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
+import { AlertCircle, AlertTriangle, ArrowUpDown, Copy, FileVideo2Icon, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface MovieTableProps {
   movies: Movie[];
@@ -368,7 +367,7 @@ export default function MovieTable({
   const completedMovies = movies.filter((m) => m.processingState === "completed");
 
   return (
-    <Card className="bg-black/10 border-white/5 wails-no-drag">
+    <Card data-wails-dropzone className="bg-black/10 border-white/5 wails-no-drag [&.wails-dropzone-hover]:border-purple-400/30 [&.wails-dropzone-hover]:bg-purple-600/5 transition-all duration-300">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2 select-none">
@@ -396,7 +395,7 @@ export default function MovieTable({
               </Button>
             )}
             {pendingCount > 0 && !processing && (
-              <Button onClick={onStartProcessing} className="bg-gradient-to-r from-green-600 to-emerald-600">
+              <Button onClick={onStartProcessing} className="bg-linear-to-r from-green-600 to-emerald-600">
                 {t("movieTable.startProcessing")} ({pendingCount})
               </Button>
             )}
@@ -406,7 +405,7 @@ export default function MovieTable({
               </Button>
             )}
             {completedMovies.length > 0 && (
-              <Button onClick={onCopyAllResults} className="bg-gradient-to-r from-green-600 to-emerald-600">
+              <Button onClick={onCopyAllResults} className="bg-linear-to-r from-green-600 to-emerald-600">
                 {t("movieTable.copyAll")} ({completedMovies.length})
               </Button>
             )}

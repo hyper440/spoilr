@@ -1329,7 +1329,7 @@ func (s *SpoilerService) UpdateSettings(settings AppSettings) {
 // SelectSaveMediaDirectory opens a directory picker dialog and returns the selected path
 func (s *SpoilerService) SelectSaveMediaDirectory() (string, error) {
 	// Use Wails OpenFileDialog with CanChooseDirectories to pick a folder
-	selectedDir, err := application.OpenFileDialog().
+	selectedDir, err := s.app.Dialog.OpenFile().
 		SetTitle("Select Save Media Directory").
 		CanChooseDirectories(true).
 		CanChooseFiles(false).

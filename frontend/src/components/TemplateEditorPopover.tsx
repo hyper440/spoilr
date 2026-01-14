@@ -1,16 +1,16 @@
-import { useState, useEffect } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import AnimatedText from "@/components/AnimatedText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { RotateCcw, Save, X, Plus } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { SpoilerService } from "@bindings/spoilr/backend";
-import AnimatedText from "@/components/AnimatedText";
+import { Plus, RotateCcw, Save, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface TemplateEditorProps {
   onResetTemplate: () => void;
@@ -306,7 +306,7 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                   if (!params || params.length === 0) return null;
 
                   return (
-                    <TabsTrigger key={category} value={category} className="text-xs py-2 px-3 h-auto whitespace-nowrap flex-shrink-0">
+                    <TabsTrigger key={category} value={category} className="text-xs py-2 px-3 h-auto whitespace-nowrap shrink-0">
                       {category}
                     </TabsTrigger>
                   );
