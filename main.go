@@ -103,10 +103,15 @@ func main() {
 		MaxHeight:         800,
 	})
 
-	// Handle drag and drop events
-	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
+	// Handle drag and drop events using the new drop zone API
+	window.OnWindowEvent(events.Common.WindowDropZoneFilesDropped, func(event *application.WindowEvent) {
 		paths := event.Context().DroppedFiles()
-		log.Printf("Files dropped: %v", paths)
+		log.Printf("Files dropped on drop zone: %v", paths)
+
+		// Log drop zone details for debugging
+		if details := event.Context().DropZoneDetails(); details != nil {
+			log.Printf("Drop zone details - ID: %s, Classes: %v", details.ElementID, details.ClassList)
+		}
 
 		// Just add files to the list without processing
 		err := spoilerService.AddMovies(paths)

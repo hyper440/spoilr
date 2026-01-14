@@ -22,17 +22,14 @@ function AppContent() {
   useEffect(() => {
     loadInitialData();
 
-    const handleStateUpdate = (ev: any) => {
+    const handleStateUpdate = (ev: Events.WailsEvent) => {
       console.log("State updated:", ev.data);
-
-      // Wails sends data wrapped in array
-      const newState = Array.isArray(ev.data) ? ev.data[0] : ev.data;
-      console.log("Setting state:", newState);
-      setState(newState as AppState);
+      // Wails v3 no longer wraps single data argument in array
+      setState(ev.data as AppState);
     };
 
-    const handleErrorEvent = (ev: any) => {
-      const data = Array.isArray(ev.data) ? ev.data[0] : ev.data;
+    const handleErrorEvent = (ev: Events.WailsEvent) => {
+      const data = ev.data as { message: string };
       console.log(data);
       toast.error("Error", {
         description: data.message,
@@ -40,8 +37,8 @@ function AppContent() {
       });
     };
 
-    Events.On("state", handleStateUpdate);
-    Events.On("error", handleErrorEvent);
+    const offState = Events.On("state", handleStateUpdate);
+    const offError = Events.On("error", handleErrorEvent);
 
     // Load initial state immediately
     SpoilerService.GetState().then(setState).catch(console.error);
@@ -49,8 +46,8 @@ function AppContent() {
     WML.Reload();
 
     return () => {
-      Events.Off("state");
-      Events.Off("error");
+      offState();
+      offError();
     };
   }, [t]);
 
