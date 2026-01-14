@@ -17,6 +17,7 @@ func GetVideoMediaInfo(filePath string) (MediaInfo, bool, error) {
 		"-show_streams",
 		filePath,
 	)
+	hideWindow(cmd)
 
 	output, err := cmd.Output()
 	if err != nil {
