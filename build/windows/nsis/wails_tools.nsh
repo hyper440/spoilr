@@ -14,10 +14,10 @@
     !define INFO_PRODUCTNAME "Spoilr"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "1.5.0"
+    !define INFO_PRODUCTVERSION "1.6.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "(c) 2025, hyper440"
+    !define INFO_COPYRIGHT "(c) 2026, hyper440"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"
