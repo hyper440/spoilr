@@ -1018,6 +1018,7 @@ func (s *SpoilerService) generateMovieContactSheet(videoPath, tempDir string) (s
 	cmdArgs = append(cmdArgs, "-O", tempDir, videoPath)
 
 	cmd := exec.CommandContext(s.cancelCtx, "mtn", cmdArgs...)
+	hideWindow(cmd)
 
 	// Capture both stdout and stderr for better error reporting
 	output, err := cmd.CombinedOutput()
@@ -1077,6 +1078,7 @@ func (s *SpoilerService) generateScreenshot(videoPath, outputPath string, timest
 		"-y",
 		outputPath,
 	)
+	hideWindow(cmd)
 
 	err := cmd.Run()
 	if err != nil {
