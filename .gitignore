@@ -6,3 +6,4 @@ build/linux/appimage/build
 wails_windows_amd64.syso
 spoilr.config
 .env
+.claude/settings.local.json
