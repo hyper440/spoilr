@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import type React from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 // Import translation files
 import enTranslations from "../locales/en.json";
@@ -17,11 +24,22 @@ const translations = {
   ru: ruTranslations,
 };
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+const LanguageContext = createContext<LanguageContextType | undefined>(
+  undefined,
+);
 
 // Helper function to get nested object value by dot notation path
-const getNestedValue = (obj: any, path: string): string => {
-  return path.split(".").reduce((current, key) => current?.[key], obj) || path;
+const getNestedValue = (obj: Record<string, unknown>, path: string): string => {
+  const result = path
+    .split(".")
+    .reduce<unknown>(
+      (current, key) =>
+        current && typeof current === "object"
+          ? (current as Record<string, unknown>)[key]
+          : undefined,
+      obj,
+    );
+  return typeof result === "string" ? result : path;
 };
 
 // Function to detect system language
@@ -34,7 +52,9 @@ interface LanguageProviderProps {
   children: ReactNode;
 }
 
-export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
+export const LanguageProvider: React.FC<LanguageProviderProps> = ({
+  children,
+}) => {
   const [language, setLanguage] = useState<SupportedLanguage>("en");
 
   useEffect(() => {
@@ -64,7 +84,11 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     setLanguage,
   };
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
 };
 
 // Custom hook to use language context

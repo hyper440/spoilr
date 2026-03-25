@@ -1,5 +1,5 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Upload } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { useTranslation } from "@/contexts/LanguageContext";
 
 export default function DropZone() {
@@ -15,7 +15,9 @@ export default function DropZone() {
           <div className="mx-auto mb-6 p-4 bg-gradient-to-br from-purple-600/20 to-blue-600/20 rounded-full w-fit">
             <Upload className="w-12 h-12 text-purple-400" />
           </div>
-          <h3 className="text-2xl font-semibold mb-3 text-white">{t("dropzone.title")}</h3>
+          <h3 className="text-2xl font-semibold mb-3 text-white">
+            {t("dropzone.title")}
+          </h3>
         </div>
       </CardContent>
     </Card>

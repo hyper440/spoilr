@@ -1,15 +1,19 @@
+import {
+  type AppSettings,
+  type AppState,
+  type Movie,
+  SpoilerService,
+} from "@bindings/spoilr/backend";
+import { Events, WML } from "@wailsio/runtime";
+import { useEffect, useState } from "react";
+import { Toaster, toast } from "sonner";
+import AnimatedText from "@/components/AnimatedText";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider, useTranslation } from "@/contexts/LanguageContext";
-import { useState, useEffect } from "react";
-import { SpoilerService, AppSettings, AppState, Movie } from "@bindings/spoilr/backend";
-import { Events, WML } from "@wailsio/runtime";
-import { Toaster, toast } from "sonner";
-
 import DropZone from "./components/DropZone";
 import MovieTable from "./components/MovieTable";
 import SettingsPopover from "./components/SettingsPopover";
 import TemplateEditor from "./components/TemplateEditorPopover";
-import AnimatedText from "@/components/AnimatedText";
 
 function AppContent() {
   const { t } = useTranslation();
@@ -20,7 +24,20 @@ function AppContent() {
   const [settings, setSettings] = useState<AppSettings>({} as AppSettings);
 
   useEffect(() => {
-    loadInitialData();
+    const doLoad = async () => {
+      try {
+        const [appSettings, initialState] = await Promise.all([
+          SpoilerService.GetSettings(),
+          SpoilerService.GetState(),
+        ]);
+        setSettings(appSettings);
+        setState(initialState);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      }
+    };
+
+    doLoad();
 
     const handleStateUpdate = (ev: Events.WailsEvent) => {
       console.log("State updated:", ev.data);
@@ -49,18 +66,7 @@ function AppContent() {
       offState();
       offError();
     };
-  }, [t]);
-
-  const loadInitialData = async () => {
-    try {
-      const [appSettings, initialState] = await Promise.all([SpoilerService.GetSettings(), SpoilerService.GetState()]);
-
-      setSettings(appSettings);
-      setState(initialState);
-    } catch (error) {
-      console.error(t("errors.loadInitialData"), error);
-    }
-  };
+  }, []);
 
   const startProcessing = async () => {
     try {
@@ -142,7 +148,8 @@ function AppContent() {
     }
   };
 
-  const pendingMovies = state.movies?.filter((m) => m.processingState === "pending") || [];
+  const pendingMovies =
+    state.movies?.filter((m) => m.processingState === "pending") || [];
   const hasMovies = (state.movies?.length || 0) > 0;
 
   return (
@@ -153,12 +160,19 @@ function AppContent() {
       <div className="h-full self-center p-2backdrop-blur-xl bg-white/2 p-6 shadow-2xl">
         {/* Integrated Header */}
         <div className="wails-drag flex items-center justify-between mb-6">
-          <a data-wml-openurl="https://github.com/hyper440/spoilr" className="cursor-pointer">
+          <a
+            href="https://github.com/hyper440/spoilr"
+            data-wml-openurl="https://github.com/hyper440/spoilr"
+            className="cursor-pointer"
+          >
             <AnimatedText>Spoilr</AnimatedText>
           </a>
           <div className="wails-no-drag flex items-center gap-10">
             <TemplateEditor onResetTemplate={resetTemplateToDefault} />
-            <SettingsPopover settings={settings} onUpdateSettings={updateSettings} />
+            <SettingsPopover
+              settings={settings}
+              onUpdateSettings={updateSettings}
+            />
           </div>
         </div>
 

@@ -1,15 +1,44 @@
+import { type Movie, SpoilerService } from "@bindings/spoilr/backend";
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowUpDown,
+  Copy,
+  FileVideo2Icon,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTranslation } from "@/contexts/LanguageContext";
-import { Movie, SpoilerService } from "@bindings/spoilr/backend";
-import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from "@tanstack/react-table";
-import { AlertCircle, AlertTriangle, ArrowUpDown, Copy, FileVideo2Icon, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface MovieTableProps {
   movies: Movie[];
@@ -39,8 +68,12 @@ export default function MovieTable({
   onSortingChange,
 }: MovieTableProps) {
   const { t } = useTranslation();
-  const [localSpoilers, setLocalSpoilers] = useState<Record<string, string>>({});
-  const [sorting, setSorting] = useState<SortingState>([{ id: "fileName", desc: false }]);
+  const [localSpoilers, setLocalSpoilers] = useState<Record<string, string>>(
+    {},
+  );
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "fileName", desc: false },
+  ]);
 
   const handleRowHover = async (movieId: string) => {
     try {
@@ -51,7 +84,11 @@ export default function MovieTable({
     }
   };
 
-  const getProcessingBadge = (state: string, processingError?: string, errors?: string[]) => {
+  const getProcessingBadge = (
+    state: string,
+    processingError?: string,
+    errors?: string[],
+  ) => {
     const hasWarnings = errors && errors.length > 0;
 
     const renderErrorIcon = () => {
@@ -65,7 +102,9 @@ export default function MovieTable({
         <div className="max-w-xs">
           {processingError && (
             <div className="mb-2">
-              <div className="font-semibold text-red-400">Processing Error:</div>
+              <div className="font-semibold text-red-400">
+                Processing Error:
+              </div>
               <div>{processingError}</div>
             </div>
           )}
@@ -100,7 +139,10 @@ export default function MovieTable({
       case "pending":
         return (
           <div className="flex items-center">
-            <Badge variant="outline" className="border-yellow-400/50 text-yellow-400">
+            <Badge
+              variant="outline"
+              className="border-yellow-400/50 text-yellow-400"
+            >
               {t("movieTable.status.pending")}
             </Badge>
             {renderErrorIcon()}
@@ -114,19 +156,28 @@ export default function MovieTable({
         );
       case "waiting_for_screenshot_slot":
         return (
-          <Badge variant="outline" className="border-orange-400/50 text-orange-400">
+          <Badge
+            variant="outline"
+            className="border-orange-400/50 text-orange-400"
+          >
             {t("movieTable.status.waitingForScreenshotSlot")}
           </Badge>
         );
       case "generating_screenshots":
         return (
-          <Badge variant="outline" className="border-purple-400/50 text-purple-400">
+          <Badge
+            variant="outline"
+            className="border-purple-400/50 text-purple-400"
+          >
             {t("movieTable.status.generatingScreenshots")}
           </Badge>
         );
       case "waiting_for_upload_slot":
         return (
-          <Badge variant="outline" className="border-amber-400/50 text-amber-400">
+          <Badge
+            variant="outline"
+            className="border-amber-400/50 text-amber-400"
+          >
             {t("movieTable.status.waitingForUploadSlot")}
           </Badge>
         );
@@ -139,7 +190,10 @@ export default function MovieTable({
       case "completed":
         return (
           <div className="flex items-center">
-            <Badge variant="outline" className="border-green-400/50 text-green-400">
+            <Badge
+              variant="outline"
+              className="border-green-400/50 text-green-400"
+            >
               {t("movieTable.status.completed")}
             </Badge>
             {renderErrorIcon()}
@@ -175,11 +229,15 @@ export default function MovieTable({
         );
       },
       sortingFn: (rowA, rowB) => {
-        return rowA.original.fileName.localeCompare(rowB.original.fileName, undefined, {
-          numeric: true,
-          sensitivity: "base",
-          ignorePunctuation: false,
-        });
+        return rowA.original.fileName.localeCompare(
+          rowB.original.fileName,
+          undefined,
+          {
+            numeric: true,
+            sensitivity: "base",
+            ignorePunctuation: false,
+          },
+        );
       },
       cell: ({ row }) => {
         const movie = row.original;
@@ -189,9 +247,14 @@ export default function MovieTable({
               {movie.processingState === "completed" ? (
                 <HoverCard>
                   <HoverCardTrigger asChild>
-                    <span className="cursor-pointer hover:underline inline-block w-full truncate">{movie.fileName}</span>
+                    <span className="cursor-pointer hover:underline inline-block w-full truncate">
+                      {movie.fileName}
+                    </span>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-150 bg-black/90 border-white/10" side="right">
+                  <HoverCardContent
+                    className="w-150 bg-black/90 border-white/10"
+                    side="right"
+                  >
                     <div className="space-y-2 flex">
                       <Button
                         size="sm"
@@ -213,7 +276,9 @@ export default function MovieTable({
               ) : (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="inline-block w-full truncate">{movie.fileName}</span>
+                    <span className="inline-block w-full truncate">
+                      {movie.fileName}
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{movie.fileName}</p>
@@ -239,7 +304,9 @@ export default function MovieTable({
           </Button>
         );
       },
-      cell: ({ row }) => <div className="text-slate-300">{row.getValue("fileSize")}</div>,
+      cell: ({ row }) => (
+        <div className="text-slate-300">{row.getValue("fileSize")}</div>
+      ),
     },
     {
       accessorKey: "duration",
@@ -255,7 +322,9 @@ export default function MovieTable({
           </Button>
         );
       },
-      cell: ({ row }) => <div className="text-slate-300">{row.getValue("duration")}</div>,
+      cell: ({ row }) => (
+        <div className="text-slate-300">{row.getValue("duration")}</div>
+      ),
     },
     {
       id: "resolution",
@@ -271,7 +340,7 @@ export default function MovieTable({
           </Button>
         );
       },
-      accessorFn: (row) => parseInt(row.width) * parseInt(row.height),
+      accessorFn: (row) => parseInt(row.width, 10) * parseInt(row.height, 10),
       cell: ({ row }) => {
         const movie = row.original;
         return (
@@ -297,7 +366,11 @@ export default function MovieTable({
       },
       cell: ({ row }) => {
         const movie = row.original;
-        return getProcessingBadge(movie.processingState, movie.processingError, movie.errors);
+        return getProcessingBadge(
+          movie.processingState,
+          movie.processingError,
+          movie.errors,
+        );
       },
     },
     {
@@ -344,7 +417,9 @@ export default function MovieTable({
     onSortingChange: (newSorting) => {
       setSorting(newSorting);
       if (onSortingChange) {
-        onSortingChange(typeof newSorting === "function" ? newSorting(sorting) : newSorting);
+        onSortingChange(
+          typeof newSorting === "function" ? newSorting(sorting) : newSorting,
+        );
       }
     },
     getCoreRowModel: getCoreRowModel(),
@@ -355,19 +430,27 @@ export default function MovieTable({
   });
 
   // Update reordering logic to work with table data
+  const rowModel = table.getRowModel();
   useEffect(() => {
-    const sortedMovies = table.getRowModel().rows.map((row) => row.original);
-    const orderChanged = movies.some((movie, index) => movie.id !== sortedMovies[index]?.id);
+    const sortedMovies = rowModel.rows.map((row) => row.original);
+    const orderChanged = movies.some(
+      (movie, index) => movie.id !== sortedMovies[index]?.id,
+    );
 
     if (orderChanged) {
       onReorderMovies(sortedMovies);
     }
-  }, [table.getRowModel().rows, movies, onReorderMovies]);
+  }, [rowModel, movies, onReorderMovies]);
 
-  const completedMovies = movies.filter((m) => m.processingState === "completed");
+  const completedMovies = movies.filter(
+    (m) => m.processingState === "completed",
+  );
 
   return (
-    <Card data-file-drop-target className="bg-black/10 border-white/5 wails-no-drag drop-zone transition-all duration-300">
+    <Card
+      data-file-drop-target
+      className="bg-black/10 border-white/5 wails-no-drag drop-zone transition-all duration-300"
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2 select-none">
@@ -390,22 +473,36 @@ export default function MovieTable({
               </Tooltip>
             )}
             {!processing && (
-              <Button onClick={onClearMovies} variant="outline" className="border-white/20 hover:bg-red-500/20">
+              <Button
+                onClick={onClearMovies}
+                variant="outline"
+                className="border-white/20 hover:bg-red-500/20"
+              >
                 {t("movieTable.clearAll")}
               </Button>
             )}
             {pendingCount > 0 && !processing && (
-              <Button onClick={onStartProcessing} className="bg-linear-to-r from-green-600 to-emerald-600">
+              <Button
+                onClick={onStartProcessing}
+                className="bg-linear-to-r from-green-600 to-emerald-600"
+              >
                 {t("movieTable.startProcessing")} ({pendingCount})
               </Button>
             )}
             {processing && (
-              <Button onClick={onCancelProcessing} variant="outline" className="border-red-400/50 text-red-400 hover:bg-red-500/20">
+              <Button
+                onClick={onCancelProcessing}
+                variant="outline"
+                className="border-red-400/50 text-red-400 hover:bg-red-500/20"
+              >
                 {t("movieTable.cancel")}
               </Button>
             )}
             {completedMovies.length > 0 && (
-              <Button onClick={onCopyAllResults} className="bg-linear-to-r from-green-600 to-emerald-600">
+              <Button
+                onClick={onCopyAllResults}
+                className="bg-linear-to-r from-green-600 to-emerald-600"
+              >
                 {t("movieTable.copyAll")} ({completedMovies.length})
               </Button>
             )}
@@ -421,7 +518,12 @@ export default function MovieTable({
                   <TableRow key={headerGroup.id} className="border-white/5">
                     {headerGroup.headers.map((header) => (
                       <TableHead key={header.id} className="text-slate-300">
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -433,16 +535,27 @@ export default function MovieTable({
                     <TableRow
                       key={row.id}
                       className="border-white/5 hover:bg-white/2"
-                      onMouseEnter={() => row.original.processingState === "completed" && handleRowHover(row.original.id)}
+                      onMouseEnter={() =>
+                        row.original.processingState === "completed" &&
+                        handleRowHover(row.original.id)
+                      }
                     >
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                        <TableCell key={cell.id}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={columns.length} className="h-24 text-center text-slate-300">
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center text-slate-300"
+                    >
                       No movies added.
                     </TableCell>
                   </TableRow>

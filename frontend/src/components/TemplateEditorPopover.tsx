@@ -1,16 +1,24 @@
+import { SpoilerService } from "@bindings/spoilr/backend";
+import { Plus, RotateCcw, Save, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import AnimatedText from "@/components/AnimatedText";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTranslation } from "@/contexts/LanguageContext";
-import { SpoilerService } from "@bindings/spoilr/backend";
-import { Plus, RotateCcw, Save, X } from "lucide-react";
-import { useEffect, useState } from "react";
 
 interface TemplateEditorProps {
   onResetTemplate: () => void;
@@ -28,7 +36,9 @@ interface TemplatePreset {
   template: string;
 }
 
-export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps) {
+export default function TemplateEditor({
+  onResetTemplate,
+}: TemplateEditorProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState("");
@@ -39,13 +49,7 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [showNewPreset, setShowNewPreset] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      loadPresetsAndCurrentTemplate();
-    }
-  }, [isOpen]);
-
-  const loadPresetsAndCurrentTemplate = async () => {
+  const loadPresetsAndCurrentTemplate = useCallback(async () => {
     try {
       const [loadedPresets, currentPreset, template] = await Promise.all([
         SpoilerService.GetTemplatePresets(),
@@ -58,66 +62,211 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
     } catch (error) {
       console.error("Failed to load template data:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadPresetsAndCurrentTemplate();
+    }
+  }, [isOpen, loadPresetsAndCurrentTemplate]);
 
   const templateParams: TemplateParam[] = [
     // File Information
-    { name: "%FILE_NAME%", description: t("templateEditor.parameters.fileName"), category: "File Info" },
-    { name: "%FILE_SIZE%", description: t("templateEditor.parameters.fileSize"), category: "File Info" },
-    { name: "%DURATION%", description: t("templateEditor.parameters.duration"), category: "File Info" },
+    {
+      name: "%FILE_NAME%",
+      description: t("templateEditor.parameters.fileName"),
+      category: "File Info",
+    },
+    {
+      name: "%FILE_SIZE%",
+      description: t("templateEditor.parameters.fileSize"),
+      category: "File Info",
+    },
+    {
+      name: "%DURATION%",
+      description: t("templateEditor.parameters.duration"),
+      category: "File Info",
+    },
 
     // Video Information
-    { name: "%WIDTH%", description: t("templateEditor.parameters.width"), category: "Video" },
-    { name: "%HEIGHT%", description: t("templateEditor.parameters.height"), category: "Video" },
-    { name: "%BIT_RATE%", description: t("templateEditor.parameters.bitRate"), category: "Video" },
-    { name: "%VIDEO_BIT_RATE%", description: t("templateEditor.parameters.videoBitRate"), category: "Video" },
-    { name: "%VIDEO_CODEC%", description: t("templateEditor.parameters.videoCodec"), category: "Video" },
-    { name: "%VIDEO_FPS%", description: t("templateEditor.parameters.videoFps"), category: "Video" },
-    { name: "%VIDEO_FPS_FRACTIONAL%", description: t("templateEditor.parameters.videoFpsFractional"), category: "Video" },
+    {
+      name: "%WIDTH%",
+      description: t("templateEditor.parameters.width"),
+      category: "Video",
+    },
+    {
+      name: "%HEIGHT%",
+      description: t("templateEditor.parameters.height"),
+      category: "Video",
+    },
+    {
+      name: "%BIT_RATE%",
+      description: t("templateEditor.parameters.bitRate"),
+      category: "Video",
+    },
+    {
+      name: "%VIDEO_BIT_RATE%",
+      description: t("templateEditor.parameters.videoBitRate"),
+      category: "Video",
+    },
+    {
+      name: "%VIDEO_CODEC%",
+      description: t("templateEditor.parameters.videoCodec"),
+      category: "Video",
+    },
+    {
+      name: "%VIDEO_FPS%",
+      description: t("templateEditor.parameters.videoFps"),
+      category: "Video",
+    },
+    {
+      name: "%VIDEO_FPS_FRACTIONAL%",
+      description: t("templateEditor.parameters.videoFpsFractional"),
+      category: "Video",
+    },
 
     // Audio Information
-    { name: "%AUDIO_BIT_RATE%", description: t("templateEditor.parameters.audioBitRate"), category: "Audio" },
-    { name: "%AUDIO_CODEC%", description: t("templateEditor.parameters.audioCodec"), category: "Audio" },
-    { name: "%AUDIO_SAMPLE_RATE%", description: t("templateEditor.parameters.audioSampleRate"), category: "Audio" },
-    { name: "%AUDIO_CHANNELS%", description: t("templateEditor.parameters.audioChannels"), category: "Audio" },
+    {
+      name: "%AUDIO_BIT_RATE%",
+      description: t("templateEditor.parameters.audioBitRate"),
+      category: "Audio",
+    },
+    {
+      name: "%AUDIO_CODEC%",
+      description: t("templateEditor.parameters.audioCodec"),
+      category: "Audio",
+    },
+    {
+      name: "%AUDIO_SAMPLE_RATE%",
+      description: t("templateEditor.parameters.audioSampleRate"),
+      category: "Audio",
+    },
+    {
+      name: "%AUDIO_CHANNELS%",
+      description: t("templateEditor.parameters.audioChannels"),
+      category: "Audio",
+    },
 
     // Contact Sheets (MTN-generated grids)
-    { name: "%CONTACT_SHEET_FP%", description: t("templateEditor.parameters.contactSheetFp"), category: "Contact Sheets" },
-    { name: "%CONTACT_SHEET_FP_BIG%", description: t("templateEditor.parameters.contactSheetFpBig"), category: "Contact Sheets" },
-    { name: "%CONTACT_SHEET_IB%", description: t("templateEditor.parameters.contactSheetIb"), category: "Contact Sheets" },
-    { name: "%CONTACT_SHEET_IB_BIG%", description: t("templateEditor.parameters.contactSheetIbBig"), category: "Contact Sheets" },
-    { name: "%CONTACT_SHEET_HAM%", description: t("templateEditor.parameters.contactSheetHam"), category: "Contact Sheets" },
-    { name: "%CONTACT_SHEET_HAM_BIG%", description: t("templateEditor.parameters.contactSheetHamBig"), category: "Contact Sheets" },
+    {
+      name: "%CONTACT_SHEET_FP%",
+      description: t("templateEditor.parameters.contactSheetFp"),
+      category: "Contact Sheets",
+    },
+    {
+      name: "%CONTACT_SHEET_FP_BIG%",
+      description: t("templateEditor.parameters.contactSheetFpBig"),
+      category: "Contact Sheets",
+    },
+    {
+      name: "%CONTACT_SHEET_IB%",
+      description: t("templateEditor.parameters.contactSheetIb"),
+      category: "Contact Sheets",
+    },
+    {
+      name: "%CONTACT_SHEET_IB_BIG%",
+      description: t("templateEditor.parameters.contactSheetIbBig"),
+      category: "Contact Sheets",
+    },
+    {
+      name: "%CONTACT_SHEET_HAM%",
+      description: t("templateEditor.parameters.contactSheetHam"),
+      category: "Contact Sheets",
+    },
+    {
+      name: "%CONTACT_SHEET_HAM_BIG%",
+      description: t("templateEditor.parameters.contactSheetHamBig"),
+      category: "Contact Sheets",
+    },
 
     // Fastpic Screenshots
-    { name: "%SCREENSHOTS_FP%", description: t("templateEditor.parameters.screenshotsFp"), category: "Fastpic Screenshots" },
-    { name: "%SCREENSHOTS_FP_SPACED%", description: t("templateEditor.parameters.screenshotsFpSpaced"), category: "Fastpic Screenshots" },
-    { name: "%SCREENSHOTS_FP_BIG%", description: t("templateEditor.parameters.screenshotsFpBig"), category: "Fastpic Screenshots" },
-    { name: "%SCREENSHOTS_FP_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsFpBigSpaced"), category: "Fastpic Screenshots" },
+    {
+      name: "%SCREENSHOTS_FP%",
+      description: t("templateEditor.parameters.screenshotsFp"),
+      category: "Fastpic Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_FP_SPACED%",
+      description: t("templateEditor.parameters.screenshotsFpSpaced"),
+      category: "Fastpic Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_FP_BIG%",
+      description: t("templateEditor.parameters.screenshotsFpBig"),
+      category: "Fastpic Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_FP_BIG_SPACED%",
+      description: t("templateEditor.parameters.screenshotsFpBigSpaced"),
+      category: "Fastpic Screenshots",
+    },
 
     // Imgbox Screenshots
-    { name: "%SCREENSHOTS_IB%", description: t("templateEditor.parameters.screenshotsIb"), category: "Imgbox Screenshots" },
-    { name: "%SCREENSHOTS_IB_SPACED%", description: t("templateEditor.parameters.screenshotsIbSpaced"), category: "Imgbox Screenshots" },
-    { name: "%SCREENSHOTS_IB_BIG%", description: t("templateEditor.parameters.screenshotsIbBig"), category: "Imgbox Screenshots" },
-    { name: "%SCREENSHOTS_IB_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsIbBigSpaced"), category: "Imgbox Screenshots" },
+    {
+      name: "%SCREENSHOTS_IB%",
+      description: t("templateEditor.parameters.screenshotsIb"),
+      category: "Imgbox Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_IB_SPACED%",
+      description: t("templateEditor.parameters.screenshotsIbSpaced"),
+      category: "Imgbox Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_IB_BIG%",
+      description: t("templateEditor.parameters.screenshotsIbBig"),
+      category: "Imgbox Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_IB_BIG_SPACED%",
+      description: t("templateEditor.parameters.screenshotsIbBigSpaced"),
+      category: "Imgbox Screenshots",
+    },
 
     // Hamster Screenshots
-    { name: "%SCREENSHOTS_HAM%", description: t("templateEditor.parameters.screenshotsHam"), category: "Hamster Screenshots" },
-    { name: "%SCREENSHOTS_HAM_SPACED%", description: t("templateEditor.parameters.screenshotsHamSpaced"), category: "Hamster Screenshots" },
-    { name: "%SCREENSHOTS_HAM_BIG%", description: t("templateEditor.parameters.screenshotsHamBig"), category: "Hamster Screenshots" },
-    { name: "%SCREENSHOTS_HAM_BIG_SPACED%", description: t("templateEditor.parameters.screenshotsHamBigSpaced"), category: "Hamster Screenshots" },
+    {
+      name: "%SCREENSHOTS_HAM%",
+      description: t("templateEditor.parameters.screenshotsHam"),
+      category: "Hamster Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_HAM_SPACED%",
+      description: t("templateEditor.parameters.screenshotsHamSpaced"),
+      category: "Hamster Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_HAM_BIG%",
+      description: t("templateEditor.parameters.screenshotsHamBig"),
+      category: "Hamster Screenshots",
+    },
+    {
+      name: "%SCREENSHOTS_HAM_BIG_SPACED%",
+      description: t("templateEditor.parameters.screenshotsHamBigSpaced"),
+      category: "Hamster Screenshots",
+    },
   ];
 
-  const groupedParams = templateParams.reduce((acc, param) => {
-    const category = param.category || "Other";
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(param);
-    return acc;
-  }, {} as Record<string, TemplateParam[]>);
+  const groupedParams = templateParams.reduce(
+    (acc, param) => {
+      const category = param.category || "Other";
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(param);
+      return acc;
+    },
+    {} as Record<string, TemplateParam[]>,
+  );
 
-  const categoryOrder = ["File Info", "Video", "Audio", "Contact Sheets", "Fastpic Screenshots", "Imgbox Screenshots", "Hamster Screenshots"];
+  const categoryOrder = [
+    "File Info",
+    "Video",
+    "Audio",
+    "Contact Sheets",
+    "Fastpic Screenshots",
+    "Imgbox Screenshots",
+    "Hamster Screenshots",
+  ];
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
@@ -130,7 +279,10 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
   const handleParamClick = (param: string) => {
     const start = cursorPosition;
     const end = cursorPosition;
-    const newValue = currentTemplate.substring(0, start) + param + currentTemplate.substring(end);
+    const newValue =
+      currentTemplate.substring(0, start) +
+      param +
+      currentTemplate.substring(end);
     setCurrentTemplate(newValue);
     setCursorPosition(start + param.length);
   };
@@ -140,7 +292,9 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
     setCursorPosition(e.target.selectionStart);
   };
 
-  const handleTextareaSelect = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+  const handleTextareaSelect = (
+    e: React.SyntheticEvent<HTMLTextAreaElement>,
+  ) => {
     const target = e.target as HTMLTextAreaElement;
     setCursorPosition(target.selectionStart);
   };
@@ -169,7 +323,10 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
 
     setIsSavingPreset(true);
     try {
-      await SpoilerService.SaveTemplatePreset(newPresetName.trim(), currentTemplate);
+      await SpoilerService.SaveTemplatePreset(
+        newPresetName.trim(),
+        currentTemplate,
+      );
       await loadPresetsAndCurrentTemplate(); // Reload data from backend
       setNewPresetName("");
       setShowNewPreset(false);
@@ -199,13 +356,20 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h4 className="font-medium text-sm">{t("templateEditor.title")}</h4>
+              <h4 className="font-medium text-sm">
+                {t("templateEditor.title")}
+              </h4>
             </div>
 
             <div className="flex items-center gap-2">
               {/* Add Preset Toggle */}
               {!showNewPreset ? (
-                <Button variant="outline" size="sm" onClick={() => setShowNewPreset(true)} className="h-8 px-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNewPreset(true)}
+                  className="h-8 px-2"
+                >
                   <Plus className="w-3 h-3 mr-1" />
                   {t("templateEditor.saveAsPreset")}
                 </Button>
@@ -226,7 +390,12 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                     }}
                     autoFocus
                   />
-                  <Button onClick={handleSavePreset} disabled={!newPresetName.trim() || isSavingPreset} size="sm" className="h-6 px-2 text-xs">
+                  <Button
+                    onClick={handleSavePreset}
+                    disabled={!newPresetName.trim() || isSavingPreset}
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                  >
                     <Save className="w-3 h-3" />
                   </Button>
                   <Button
@@ -242,7 +411,12 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                   </Button>
                 </div>
               )}
-              <Button variant="outline" size="sm" onClick={onResetTemplate} className="h-8 px-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onResetTemplate}
+                className="h-8 px-2"
+              >
                 <RotateCcw className="w-3 h-3 mr-1" />
                 {t("templateEditor.resetToDefault")}
               </Button>
@@ -260,7 +434,9 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                 {presets.map((preset) => (
                   <div key={preset.id} className="relative group">
                     <Badge
-                      variant={preset.id === currentPresetId ? "default" : "outline"}
+                      variant={
+                        preset.id === currentPresetId ? "default" : "outline"
+                      }
                       className="cursor-pointer text-xs px-2 py-1 h-6"
                       onClick={() => handlePresetClick(preset)}
                     >
@@ -298,7 +474,9 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
 
           {/* Parameters Tabs */}
           <div className="space-y-2">
-            <div className="text-xs text-muted-foreground font-medium">{t("templateEditor.parametersLabel")}</div>
+            <div className="text-xs text-muted-foreground font-medium">
+              {t("templateEditor.parametersLabel")}
+            </div>
             <Tabs defaultValue={categoryOrder[0]} className="w-full">
               <TabsList className="flex w-full h-auto flex-wrap justify-start">
                 {categoryOrder.map((category) => {
@@ -306,7 +484,11 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                   if (!params || params.length === 0) return null;
 
                   return (
-                    <TabsTrigger key={category} value={category} className="text-xs py-2 px-3 h-auto whitespace-nowrap shrink-0">
+                    <TabsTrigger
+                      key={category}
+                      value={category}
+                      className="text-xs py-2 px-3 h-auto whitespace-nowrap shrink-0"
+                    >
                       {category}
                     </TabsTrigger>
                   );
@@ -323,6 +505,7 @@ export default function TemplateEditor({ onResetTemplate }: TemplateEditorProps)
                         <Tooltip key={param.name}>
                           <TooltipTrigger asChild>
                             <button
+                              type="button"
                               onClick={() => handleParamClick(param.name)}
                               className="text-left p-2 rounded text-xs font-mono transition-colors border hover:bg-accent hover:text-accent-foreground"
                             >

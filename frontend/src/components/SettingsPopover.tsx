@@ -1,22 +1,29 @@
+import type { AppSettings } from "@bindings/spoilr/backend";
+import * as SpoilerService from "@bindings/spoilr/backend/spoilerservice";
+import { FolderOpen, X } from "lucide-react";
+import AnimatedText from "@/components/AnimatedText";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { AppSettings } from "@bindings/spoilr/backend";
-import * as SpoilerService from "@bindings/spoilr/backend/spoilerservice";
 import { useTranslation } from "@/contexts/LanguageContext";
-import AnimatedText from "@/components/AnimatedText";
-import { FolderOpen, X } from "lucide-react";
 
 interface SettingsPopoverProps {
   settings: AppSettings;
   onUpdateSettings: (settings: Partial<AppSettings>) => void;
 }
 
-export default function SettingsPopover({ settings, onUpdateSettings }: SettingsPopoverProps) {
+export default function SettingsPopover({
+  settings,
+  onUpdateSettings,
+}: SettingsPopoverProps) {
   const { t } = useTranslation();
 
   return (
@@ -35,7 +42,9 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 </Label>
                 <Slider
                   value={[settings.screenshotCount]}
-                  onValueChange={([value]) => onUpdateSettings({ screenshotCount: value })}
+                  onValueChange={([value]) =>
+                    onUpdateSettings({ screenshotCount: value })
+                  }
                   max={20}
                   min={1}
                   step={1}
@@ -43,11 +52,14 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  {t("settings.imageMiniatureSize")}: {settings.imageMiniatureSize}px
+                  {t("settings.imageMiniatureSize")}:{" "}
+                  {settings.imageMiniatureSize}px
                 </Label>
                 <Slider
                   value={[settings.imageMiniatureSize]}
-                  onValueChange={([value]) => onUpdateSettings({ imageMiniatureSize: value })}
+                  onValueChange={([value]) =>
+                    onUpdateSettings({ imageMiniatureSize: value })
+                  }
                   max={800}
                   min={100}
                   step={50}
@@ -59,7 +71,9 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 </Label>
                 <Slider
                   value={[settings.screenshotQuality]}
-                  onValueChange={([value]) => onUpdateSettings({ screenshotQuality: value })}
+                  onValueChange={([value]) =>
+                    onUpdateSettings({ screenshotQuality: value })
+                  }
                   max={5}
                   min={1}
                   step={1}
@@ -67,11 +81,14 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  {t("settings.parallelGeneration")}: {settings.maxConcurrentScreenshots}
+                  {t("settings.parallelGeneration")}:{" "}
+                  {settings.maxConcurrentScreenshots}
                 </Label>
                 <Slider
                   value={[settings.maxConcurrentScreenshots]}
-                  onValueChange={([value]) => onUpdateSettings({ maxConcurrentScreenshots: value })}
+                  onValueChange={([value]) =>
+                    onUpdateSettings({ maxConcurrentScreenshots: value })
+                  }
                   max={30}
                   min={1}
                   step={1}
@@ -79,11 +96,14 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
               </div>
               <div className="space-y-2">
                 <Label className="text-sm font-medium">
-                  {t("settings.parallelUploads")}: {settings.maxConcurrentUploads}
+                  {t("settings.parallelUploads")}:{" "}
+                  {settings.maxConcurrentUploads}
                 </Label>
                 <Slider
                   value={[settings.maxConcurrentUploads]}
-                  onValueChange={([value]) => onUpdateSettings({ maxConcurrentUploads: value })}
+                  onValueChange={([value]) =>
+                    onUpdateSettings({ maxConcurrentUploads: value })
+                  }
                   max={20}
                   min={1}
                   step={1}
@@ -103,7 +123,9 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 <Input
                   id="fastpicSid"
                   value={settings.fastpicSid}
-                  onChange={(e) => onUpdateSettings({ fastpicSid: e.target.value })}
+                  onChange={(e) =>
+                    onUpdateSettings({ fastpicSid: e.target.value })
+                  }
                   placeholder={t("settings.fastpicSidPlaceholder")}
                   className="w-full"
                 />
@@ -120,25 +142,34 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                   id="hamsterEmail"
                   type="email"
                   value={settings.hamsterEmail || ""}
-                  onChange={(e) => onUpdateSettings({ hamsterEmail: e.target.value })}
+                  onChange={(e) =>
+                    onUpdateSettings({ hamsterEmail: e.target.value })
+                  }
                   placeholder={t("settings.hamsterEmailPlaceholder")}
                   className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="hamsterPassword" className="text-sm font-medium">
+                <Label
+                  htmlFor="hamsterPassword"
+                  className="text-sm font-medium"
+                >
                   {t("settings.hamsterPassword")}
                 </Label>
                 <Input
                   id="hamsterPassword"
                   type="password"
                   value={settings.hamsterPassword || ""}
-                  onChange={(e) => onUpdateSettings({ hamsterPassword: e.target.value })}
+                  onChange={(e) =>
+                    onUpdateSettings({ hamsterPassword: e.target.value })
+                  }
                   placeholder={t("settings.hamsterPasswordPlaceholder")}
                   className="w-full"
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{t("settings.hamsterDescription")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.hamsterDescription")}
+              </p>
 
               <Separator />
 
@@ -150,20 +181,28 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                 <Textarea
                   id="mtnArgs"
                   value={settings.mtnArgs}
-                  onChange={(e) => onUpdateSettings({ mtnArgs: e.target.value })}
+                  onChange={(e) =>
+                    onUpdateSettings({ mtnArgs: e.target.value })
+                  }
                   placeholder={t("settings.mtnArgsPlaceholder")}
                   rows={4}
                   className="w-full text-xs font-mono"
                 />
-                <p className="text-xs text-muted-foreground">{t("settings.mtnArgsDescription")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.mtnArgsDescription")}
+                </p>
               </div>
 
               <Separator />
 
               {/* Save Media Settings */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">{t("settings.saveMedia")}</Label>
-                <p className="text-xs text-muted-foreground">{t("settings.saveMediaDescription")}</p>
+                <Label className="text-sm font-medium">
+                  {t("settings.saveMedia")}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.saveMediaDescription")}
+                </p>
                 <div className="flex gap-2">
                   <Input
                     value={settings.saveMediaDirectory || ""}
@@ -176,7 +215,8 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                     size="sm"
                     onClick={async () => {
                       try {
-                        const dir = await SpoilerService.SelectSaveMediaDirectory();
+                        const dir =
+                          await SpoilerService.SelectSaveMediaDirectory();
                         if (dir) {
                           onUpdateSettings({ saveMediaDirectory: dir });
                         }
@@ -191,7 +231,9 @@ export default function SettingsPopover({ settings, onUpdateSettings }: Settings
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onUpdateSettings({ saveMediaDirectory: "" })}
+                      onClick={() =>
+                        onUpdateSettings({ saveMediaDirectory: "" })
+                      }
                     >
                       <X className="h-4 w-4" />
                     </Button>
