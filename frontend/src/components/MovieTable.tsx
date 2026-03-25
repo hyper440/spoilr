@@ -510,14 +510,13 @@ export default function MovieTable({
         </div>
       </CardHeader>
       <CardContent className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="overflow-hidden rounded-md border border-white/5">
+        <ScrollArea className="h-full rounded-md border border-white/5">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-neutral-800">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="border-white/5">
+                  <TableRow key={headerGroup.id} className="border-white/10 hover:bg-transparent">
                     {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id} className="text-slate-300">
+                      <TableHead key={header.id} className="text-slate-300 bg-neutral-800">
                         {header.isPlaceholder
                           ? null
                           : flexRender(
@@ -562,7 +561,6 @@ export default function MovieTable({
                 )}
               </TableBody>
             </Table>
-          </div>
         </ScrollArea>
       </CardContent>
     </Card>
