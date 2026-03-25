@@ -7,8 +7,8 @@ export default function DropZone() {
 
   return (
     <Card
-      data-wails-dropzone
-      className="h-[600px] bg-black/10 border-white/5 border-dashed border-2 hover:border-purple-400/30 transition-all duration-300 [&.wails-dropzone-hover]:border-purple-400/60 [&.wails-dropzone-hover]:bg-purple-600/10"
+      data-file-drop-target
+      className="h-[600px] bg-black/10 border-white/5 border-dashed border-2 hover:border-purple-400/30 transition-all duration-300 drop-zone"
     >
       <CardContent className="h-full flex items-center justify-center p-12">
         <div className="text-center">

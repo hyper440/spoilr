@@ -367,7 +367,7 @@ export default function MovieTable({
   const completedMovies = movies.filter((m) => m.processingState === "completed");
 
   return (
-    <Card data-wails-dropzone className="bg-black/10 border-white/5 wails-no-drag [&.wails-dropzone-hover]:border-purple-400/30 [&.wails-dropzone-hover]:bg-purple-600/5 transition-all duration-300">
+    <Card data-file-drop-target className="bg-black/10 border-white/5 wails-no-drag drop-zone transition-all duration-300">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-white flex items-center gap-2 select-none">

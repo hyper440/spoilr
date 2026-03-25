@@ -83,7 +83,7 @@ func main() {
 			application.NewService(spoilerService),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler: application.BundledAssetFileServer(assets),
 		},
 		Mac: application.MacOptions{
 			ApplicationShouldTerminateAfterLastWindowClosed: true,
@@ -93,24 +93,24 @@ func main() {
 	spoilerService.SetApp(app)
 
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:             "Spoilr",
-		EnableDragAndDrop: true,
-		DisableResize:     true,
-		URL:               "/",
-		Width:             1200,
-		Height:            800,
-		MaxWidth:          1200,
-		MaxHeight:         800,
+		Title:          "Spoilr",
+		EnableFileDrop: true,
+		DisableResize:  true,
+		URL:            "/",
+		Width:          1200,
+		Height:         800,
+		MaxWidth:       1200,
+		MaxHeight:      800,
 	})
 
-	// Handle drag and drop events using the new drop zone API
-	window.OnWindowEvent(events.Common.WindowDropZoneFilesDropped, func(event *application.WindowEvent) {
+	// Handle drag and drop events
+	window.OnWindowEvent(events.Common.WindowFilesDropped, func(event *application.WindowEvent) {
 		paths := event.Context().DroppedFiles()
-		log.Printf("Files dropped on drop zone: %v", paths)
+		log.Printf("Files dropped: %v", paths)
 
-		// Log drop zone details for debugging
-		if details := event.Context().DropZoneDetails(); details != nil {
-			log.Printf("Drop zone details - ID: %s, Classes: %v", details.ElementID, details.ClassList)
+		// Log drop target details for debugging
+		if details := event.Context().DropTargetDetails(); details != nil {
+			log.Printf("Drop target details - ID: %s, Attributes: %v", details.ElementID, details.Attributes)
 		}
 
 		// Just add files to the list without processing

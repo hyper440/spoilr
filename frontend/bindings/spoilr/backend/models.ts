@@ -213,7 +213,7 @@ export class Movie {
      * Individual screenshots (big)
      */
     "screenshotBigUrlsHam": string[];
-    "params": { [_: string]: string };
+    "params": { [_ in string]?: string };
 
     /**
      * State constants defined below

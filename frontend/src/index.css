@@ -132,3 +132,15 @@
     --wails-draggable: none;
   }
 }
+
+/* Drop zone styles - activated by Wails runtime when dragging files over */
+.drop-zone.file-drop-target-active {
+  border-color: oklch(0.627 0.265 303.9) !important;
+  background-color: oklch(0.627 0.265 303.9 / 10%);
+}
+
+.drop-zone.file-drop-target-active h2,
+.drop-zone.file-drop-target-active h3,
+.drop-zone.file-drop-target-active p {
+  color: oklch(0.985 0 0) !important;
+}
