@@ -15,7 +15,7 @@ import {
   FileVideo2Icon,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,41 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "@/contexts/LanguageContext";
+
+function TruncatedFileName({ fileName }: { fileName: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  const checkTruncation = useCallback(() => {
+    const el = ref.current;
+    if (el) {
+      setIsTruncated(el.scrollWidth > el.clientWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkTruncation();
+    window.addEventListener("resize", checkTruncation);
+    return () => window.removeEventListener("resize", checkTruncation);
+  }, [checkTruncation]);
+
+  const span = (
+    <span ref={ref} className="inline-block w-full truncate">
+      {fileName}
+    </span>
+  );
+
+  if (!isTruncated) return span;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{span}</TooltipTrigger>
+      <TooltipContent>
+        <p>{fileName}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 interface MovieTableProps {
   movies: Movie[];
@@ -274,16 +309,7 @@ export default function MovieTable({
                   </HoverCardContent>
                 </HoverCard>
               ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="inline-block w-full truncate">
-                      {movie.fileName}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{movie.fileName}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TruncatedFileName fileName={movie.fileName} />
               )}
             </div>
           </div>
