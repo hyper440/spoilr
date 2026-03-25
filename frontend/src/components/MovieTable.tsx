@@ -449,7 +449,7 @@ export default function MovieTable({
   return (
     <Card
       data-file-drop-target
-      className="bg-black/10 border-white/5 wails-no-drag drop-zone transition-all duration-300"
+      className="flex flex-col flex-1 min-h-0 bg-black/10 border-white/5 wails-no-drag drop-zone transition-all duration-300"
     >
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -509,8 +509,8 @@ export default function MovieTable({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[530px]">
+      <CardContent className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-full">
           <div className="overflow-hidden rounded-md border border-white/5">
             <Table>
               <TableHeader>

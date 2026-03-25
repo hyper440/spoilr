@@ -95,12 +95,11 @@ func main() {
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:          "Spoilr",
 		EnableFileDrop: true,
-		DisableResize:  true,
 		URL:            "/",
 		Width:          1200,
 		Height:         800,
-		MaxWidth:       1200,
-		MaxHeight:      800,
+		MinWidth:       600,
+		MinHeight:      400,
 	})
 
 	// Handle drag and drop events

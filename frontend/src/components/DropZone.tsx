@@ -8,7 +8,7 @@ export default function DropZone() {
   return (
     <Card
       data-file-drop-target
-      className="h-[600px] bg-black/10 border-white/5 border-dashed border-2 hover:border-purple-400/30 transition-all duration-300 drop-zone"
+      className="flex-1 min-h-0 bg-black/10 border-white/5 border-dashed border-2 hover:border-purple-400/30 transition-all duration-300 drop-zone"
     >
       <CardContent className="h-full flex items-center justify-center p-12">
         <div className="text-center">

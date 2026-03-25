@@ -154,10 +154,10 @@ function AppContent() {
 
   return (
     <div
-      className="wails-drag h-screen w-screen flex-col overflow-hidden
+      className="wails-drag flex h-screen w-screen flex-col overflow-hidden
       bg-[radial-gradient(circle_at_center,rgba(0,0,0,0.6),rgba(0,0,0,0.9))]"
     >
-      <div className="h-full self-center p-2backdrop-blur-xl bg-white/2 p-6 shadow-2xl">
+      <div className="flex flex-col flex-1 min-h-0 w-full backdrop-blur-xl bg-white/2 p-6 shadow-2xl">
         {/* Integrated Header */}
         <div className="wails-drag flex items-center justify-between mb-6">
           <a
