@@ -1349,7 +1349,7 @@ func (s *SpoilerService) SelectSaveMediaDirectory() (string, error) {
 
 	// Validate directory is writable
 	testFile := filepath.Join(selectedDir, ".spoilr_test")
-	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
 		return "", fmt.Errorf("directory is not writable: %v", err)
 	}
 	os.Remove(testFile)

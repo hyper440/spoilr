@@ -109,7 +109,15 @@ func (g *ConfigService) GetConfig() SpoilerConfig {
 		SpoilerAppConfig = loadSpoilerAppConfig()
 	}
 
-	log.Println("Spoiler Config", SpoilerAppConfig)
+	redacted := SpoilerAppConfig
+	redacted.HamsterPassword = "[REDACTED]"
+	if redacted.HamsterEmail != "" {
+		redacted.HamsterEmail = redacted.HamsterEmail[:1] + "***"
+	}
+	if redacted.FastpicSID != "" {
+		redacted.FastpicSID = redacted.FastpicSID[:4] + "***"
+	}
+	log.Println("Spoiler Config", redacted)
 	return SpoilerAppConfig
 }
 
@@ -270,7 +278,7 @@ func saveSpoilerAppConfig() error {
 	}
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(ConfigPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(ConfigPath), 0700); err != nil {
 		return fmt.Errorf("failed to create config directory: %v", err)
 	}
 
@@ -280,7 +288,7 @@ func saveSpoilerAppConfig() error {
 		return err
 	}
 
-	err = os.WriteFile(ConfigPath, b, 0644)
+	err = os.WriteFile(ConfigPath, b, 0600)
 	if err != nil {
 		fmt.Println(err)
 		return err
