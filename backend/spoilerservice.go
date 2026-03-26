@@ -20,6 +20,7 @@ import (
 )
 
 type SpoilerService struct {
+	mu                  sync.RWMutex // Protects movies, processing, cancelCtx, cancelFn
 	app                 *application.App
 	movies              []Movie
 	settings            AppSettings
@@ -81,17 +82,35 @@ func (s *SpoilerService) SetApp(app *application.App) {
 }
 
 func (s *SpoilerService) GetState() AppState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return AppState{
 		Processing: s.processing,
-		Movies:     s.movies,
+		Movies:     append([]Movie(nil), s.movies...),
 	}
 }
 
-func (s *SpoilerService) emitState() {
+// getStateLocked returns state without locking — caller must hold s.mu.
+func (s *SpoilerService) getStateLocked() AppState {
+	return AppState{
+		Processing: s.processing,
+		Movies:     append([]Movie(nil), s.movies...),
+	}
+}
+
+// emitStateLocked emits state to the frontend — caller must hold s.mu (read or write).
+func (s *SpoilerService) emitStateLocked() {
 	if s.app != nil {
-		state := s.GetState()
+		state := s.getStateLocked()
 		s.app.Event.Emit("state", state)
 	}
+}
+
+// emitState acquires a read lock and emits state to the frontend.
+func (s *SpoilerService) emitState() {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	s.emitStateLocked()
 }
 
 func (s *SpoilerService) GetDefaultTemplate() string {
@@ -162,7 +181,8 @@ func (s *SpoilerService) getUploaderRequirements() UploaderRequirements {
 	return req
 }
 
-func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool {
+// updateMovieByIDLocked updates a movie by ID — caller must hold s.mu write lock.
+func (s *SpoilerService) updateMovieByIDLocked(id string, updateFn func(*Movie)) bool {
 	for i := range s.movies {
 		if s.movies[i].ID == id {
 			updateFn(&s.movies[i])
@@ -172,13 +192,26 @@ func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool 
 	return false
 }
 
-func (s *SpoilerService) getMovieByID(id string) (Movie, bool) {
+func (s *SpoilerService) updateMovieByID(id string, updateFn func(*Movie)) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.updateMovieByIDLocked(id, updateFn)
+}
+
+// getMovieByIDLocked returns a movie by ID — caller must hold s.mu (read or write).
+func (s *SpoilerService) getMovieByIDLocked(id string) (Movie, bool) {
 	for _, movie := range s.movies {
 		if movie.ID == id {
 			return movie, true
 		}
 	}
 	return Movie{}, false
+}
+
+func (s *SpoilerService) getMovieByID(id string) (Movie, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.getMovieByIDLocked(id)
 }
 
 func (s *SpoilerService) AddMovies(filePaths []string) error {
@@ -193,6 +226,7 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 	}
 
 	// Emit all files as movies with analyzing state
+	s.mu.Lock()
 	var movieIDs []string
 	for _, path := range expandedPaths {
 		fileInfo, err := os.Stat(path)
@@ -216,11 +250,12 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 		s.movies = append(s.movies, movie)
 		movieIDs = append(movieIDs, movie.ID)
 	}
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 
 	// Second: check each file and remove non-video files
 	var wg sync.WaitGroup
-	var mu sync.Mutex
+	var validMu sync.Mutex
 	var validMovieIDs []string
 
 	for _, movieID := range movieIDs {
@@ -235,17 +270,16 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 
 			mediaInfo, isVideo, err := GetVideoMediaInfo(movie.FilePath)
 
-			mu.Lock()
-			defer mu.Unlock()
-
 			if !isVideo || err != nil {
 				// Remove non-video file
+				s.mu.Lock()
 				for i, m := range s.movies {
 					if m.ID == id {
 						s.movies = append(s.movies[:i], s.movies[i+1:]...)
 						break
 					}
 				}
+				s.mu.Unlock()
 				if err != nil {
 					log.Printf("Failed to analyze media %s: %v", movie.FileName, err)
 				} else {
@@ -257,7 +291,9 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 					ExtractMediaInfo(m, mediaInfo)
 					m.ProcessingState = StatePending
 				})
+				validMu.Lock()
 				validMovieIDs = append(validMovieIDs, id)
+				validMu.Unlock()
 			}
 		}(movieID)
 	}
@@ -272,36 +308,45 @@ func (s *SpoilerService) AddMovies(filePaths []string) error {
 }
 
 func (s *SpoilerService) RemoveMovie(id string) {
+	s.mu.Lock()
 	for i, movie := range s.movies {
 		if movie.ID == id {
 			s.movies = append(s.movies[:i], s.movies[i+1:]...)
 			break
 		}
 	}
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 func (s *SpoilerService) ClearMovies() {
+	s.mu.Lock()
 	s.movies = make([]Movie, 0)
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 func (s *SpoilerService) StartProcessing() error {
+	s.mu.Lock()
 	if s.processing {
+		s.mu.Unlock()
 		return fmt.Errorf("processing already in progress")
 	}
 
-	pendingMovies := s.getPendingMovies()
+	pendingMovies := s.getPendingMoviesLocked()
 	if len(pendingMovies) == 0 {
+		s.mu.Unlock()
 		return fmt.Errorf("no pending movies to process")
 	}
 
 	s.processing = true
 	s.cancelCtx, s.cancelFn = context.WithCancel(context.Background())
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 
 	go func() {
 		defer func() {
+			s.mu.Lock()
 			s.processing = false
 			// Reset any movies that are still in processing states back to pending
 			for i := range s.movies {
@@ -310,7 +355,8 @@ func (s *SpoilerService) StartProcessing() error {
 					s.movies[i].ProcessingError = ""
 				}
 			}
-			s.emitState()
+			s.emitStateLocked()
+			s.mu.Unlock()
 			log.Println("Processing completed")
 		}()
 
@@ -324,15 +370,18 @@ func (s *SpoilerService) StartProcessing() error {
 }
 
 func (s *SpoilerService) addMovieError(id string, errorMsg string) {
-	s.updateMovieByID(id, func(m *Movie) {
+	s.mu.Lock()
+	s.updateMovieByIDLocked(id, func(m *Movie) {
 		if m.Errors == nil {
 			m.Errors = make([]string, 0)
 		}
 		m.Errors = append(m.Errors, errorMsg)
 	})
+	s.mu.Unlock()
 }
 
 func (s *SpoilerService) ResetMovieStatuses() {
+	s.mu.Lock()
 	for i := range s.movies {
 		// Reset processing state to pending for all movies that have been analyzed
 		if s.movies[i].ProcessingState != StateAnalyzingMedia {
@@ -361,10 +410,14 @@ func (s *SpoilerService) ResetMovieStatuses() {
 		s.movies[i].ScreenshotURLsHam = make([]string, 0)
 		s.movies[i].ScreenshotBigURLsHam = make([]string, 0)
 	}
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 func (s *SpoilerService) ReorderMovies(newOrder []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	movieMap := make(map[string]Movie)
 	for _, movie := range s.movies {
 		movieMap[movie.ID] = movie
@@ -382,19 +435,22 @@ func (s *SpoilerService) ReorderMovies(newOrder []string) error {
 	}
 
 	s.movies = reorderedMovies
-	s.emitState()
+	s.emitStateLocked()
 	return nil
 }
 
 func (s *SpoilerService) CancelProcessing() {
+	s.mu.Lock()
 	if s.cancelFn != nil {
 		s.cancelFn()
 	}
 	s.processing = false
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
-func (s *SpoilerService) getPendingMovies() []Movie {
+// getPendingMoviesLocked returns pending movies — caller must hold s.mu.
+func (s *SpoilerService) getPendingMoviesLocked() []Movie {
 	var pending []Movie
 	for _, movie := range s.movies {
 		if movie.ProcessingState == StatePending {
@@ -402,6 +458,12 @@ func (s *SpoilerService) getPendingMovies() []Movie {
 		}
 	}
 	return pending
+}
+
+func (s *SpoilerService) getPendingMovies() []Movie {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.getPendingMoviesLocked()
 }
 
 // Improved concurrent processing with triple uploader support
@@ -535,26 +597,32 @@ func (s *SpoilerService) processMovieWithLimits(movie Movie, tempDir string, fas
 
 // Clear previous movie errors
 func (s *SpoilerService) clearMovieErrors(movieID string) {
-	s.updateMovieByID(movieID, func(m *Movie) {
+	s.mu.Lock()
+	s.updateMovieByIDLocked(movieID, func(m *Movie) {
 		m.Errors = make([]string, 0)
 	})
+	s.mu.Unlock()
 }
 
 // Update movie processing state
 func (s *SpoilerService) updateMovieState(movieID string, state ProcessingState) {
-	s.updateMovieByID(movieID, func(m *Movie) {
+	s.mu.Lock()
+	s.updateMovieByIDLocked(movieID, func(m *Movie) {
 		m.ProcessingState = state
 	})
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 // Set movie error state
 func (s *SpoilerService) setMovieError(movieID string, errorMsg string) {
-	s.updateMovieByID(movieID, func(m *Movie) {
+	s.mu.Lock()
+	s.updateMovieByIDLocked(movieID, func(m *Movie) {
 		m.ProcessingState = StateError
 		m.ProcessingError = errorMsg
 	})
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 // Create movie-specific temporary directory
@@ -573,8 +641,10 @@ func (s *SpoilerService) hasMediaToUpload(contactSheetPath string, screenshotPat
 
 // Finalize movie processing and set final state
 func (s *SpoilerService) finalizeMovieProcessing(movieID string) {
-	movie, exists := s.getMovieByID(movieID)
+	s.mu.Lock()
+	movie, exists := s.getMovieByIDLocked(movieID)
 	if !exists {
+		s.mu.Unlock()
 		return
 	}
 
@@ -585,10 +655,11 @@ func (s *SpoilerService) finalizeMovieProcessing(movieID string) {
 		log.Printf("Successfully processed movie: %s", movie.FileName)
 	}
 
-	s.updateMovieByID(movieID, func(m *Movie) {
+	s.updateMovieByIDLocked(movieID, func(m *Movie) {
 		m.ProcessingState = finalState
 	})
-	s.emitState()
+	s.emitStateLocked()
+	s.mu.Unlock()
 }
 
 // Generate contact sheet and screenshots with proper concurrency control
@@ -1124,13 +1195,16 @@ func (s *SpoilerService) GetExpandedFilePaths(paths []string) ([]string, error) 
 }
 
 func (s *SpoilerService) GenerateResultForMovie(movieID string) string {
+	s.mu.RLock()
 	var movie *Movie
 	for _, m := range s.movies {
 		if m.ID == movieID {
-			movie = &m
+			mcopy := m
+			movie = &mcopy
 			break
 		}
 	}
+	s.mu.RUnlock()
 
 	if movie == nil || movie.FileName == "" {
 		return ""
@@ -1140,13 +1214,19 @@ func (s *SpoilerService) GenerateResultForMovie(movieID string) string {
 }
 
 func (s *SpoilerService) GenerateResult() string {
+	s.mu.RLock()
 	if len(s.movies) == 0 {
+		s.mu.RUnlock()
 		return ""
 	}
 
+	// Copy the movies slice under lock, then release
+	moviesCopy := append([]Movie(nil), s.movies...)
+	s.mu.RUnlock()
+
 	var result strings.Builder
 
-	for _, movie := range s.movies {
+	for _, movie := range moviesCopy {
 		if movie.FileName == "" || movie.ProcessingState != StateCompleted {
 			continue
 		}
