@@ -4,8 +4,8 @@ set -e
 # Build configuration
 APP_NAME="spoilr"
 BUNDLE_ID="local.spoilr"
-VERSION="1.6.0"
-BUILD_NUMBER="1.6.0"
+VERSION="1.7.0"
+BUILD_NUMBER="1.7.0"
 BUILD_DIR="build/ios"
 TARGET="simulator"
 
