@@ -224,30 +224,29 @@ jobs:
           # Update build assets
           wails3 task common:update:build-assets
 
-          # Build the application
-          wails3 task package
+          # Build the production binary
+          wails3 task linux:build PRODUCTION=true
 
           # Generate deb package
           wails3 tool package -name spoilr -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
 
+          # Rename .deb file if needed
+          if [ -f "release/spoilr.deb" ]; then
+            mv "release/spoilr.deb" "release/spoilr_amd64.deb"
+          fi
+
           # Generate AppImage (optional - skip on failure)
           echo "Attempting to generate AppImage..."
-          if wails3 package; then
+          if wails3 task linux:create:appimage; then
             echo "AppImage generation successful"
             if [ -f "bin/spoilr-x86_64.AppImage" ]; then
               mv bin/spoilr-x86_64.AppImage "release/spoilr_amd64.AppImage"
-              rm -f bin/spoilr-x86_64.AppImage
               echo "AppImage moved to release directory"
             else
               echo "AppImage file not found after generation"
             fi
           else
             echo "AppImage generation failed - skipping AppImage creation"
-          fi
-
-          # Rename .deb file if needed
-          if [ -f "release/spoilr.deb" ]; then
-            mv "release/spoilr.deb" "release/spoilr_amd64.deb"
           fi
 
       - name: Upload Linux Artifact
