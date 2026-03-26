@@ -227,6 +227,9 @@ jobs:
           # Build the production binary
           wails3 task linux:build PRODUCTION=true
 
+          # Generate .desktop file (required by nfpm for .deb packaging)
+          wails3 task linux:generate:dotdesktop
+
           # Generate deb package
           wails3 tool package -name spoilr -format deb -config ./build/linux/nfpm/nfpm.yaml -out ./release
 
