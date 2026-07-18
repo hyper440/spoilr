@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-        "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@bindings/*": ["bindings/*"]
+      "@bindings/*": ["./bindings/*"]
     },
     "target": "ES2020",
     "useDefineForClassFields": true,
