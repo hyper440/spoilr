@@ -9,7 +9,6 @@ import (
 	"spoilr/backend"
 	"strings"
 
-	"github.com/sqweek/dialog"
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
@@ -19,7 +18,7 @@ var assets embed.FS
 
 func showErrorDialog(title, message string) {
 	log.Printf("FATAL ERROR: %s - %s", title, message)
-	dialog.Message("%s", message).Title(title).Error()
+	backend.ShowErrorDialog(title, message)
 	os.Exit(1)
 }
 

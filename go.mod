@@ -12,14 +12,12 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/providers/structs v1.0.0
 	github.com/knadh/koanf/v2 v2.3.5
-	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac
 	github.com/wailsapp/wails/v3 v3.0.0-alpha2.117
 	golang.org/x/net v0.57.0
 	golang.org/x/sys v0.47.0
 )
 
 require (
-	github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d // indirect
 	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/andybalholm/cascadia v1.3.4 // indirect

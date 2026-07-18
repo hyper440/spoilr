@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sqweek/dialog"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -232,9 +231,7 @@ WebView2 Runtime is not installed on your system. Would you like to install it n
 Click "Yes" to run the installer, or "No" to close the application.`
 
 	// Show dialog with Install/Exit options
-	result := dialog.Message("%s", message).
-		Title("WebView2 Runtime Required").
-		YesNo()
+	result := AskYesNoDialog("WebView2 Runtime Required", message)
 
 	if !result {
 		// User chose "No" (Exit)
@@ -247,9 +244,10 @@ Click "Yes" to run the installer, or "No" to close the application.`
 
 	// Show progress dialog
 	go func() {
-		dialog.Message("Installing WebView2 Runtime...\n\nPlease wait while the installer completes.").
-			Title("Installing WebView2").
-			Info()
+		ShowInfoDialog(
+			"Installing WebView2",
+			"Installing WebView2 Runtime...\n\nPlease wait while the installer completes.",
+		)
 	}()
 
 	// Run the installer
@@ -265,9 +263,10 @@ Click "Yes" to run the installer, or "No" to close the application.`
 	}
 
 	log.Println("WebView2 installation completed successfully")
-	dialog.Message("WebView2 Runtime has been installed successfully!\n\nThe application will now continue loading.").
-		Title("Installation Complete").
-		Info()
+	ShowInfoDialog(
+		"Installation Complete",
+		"WebView2 Runtime has been installed successfully!\n\nThe application will now continue loading.",
+	)
 
 	return nil
 }
