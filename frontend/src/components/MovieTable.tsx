@@ -149,8 +149,8 @@ export default function MovieTable({
                 {errors.length} Warning{errors.length > 1 ? "s" : ""}:
               </div>
               <ul className="list-disc list-inside space-y-1 mt-1">
-                {errors.map((error, index) => (
-                  <li key={index} className="text-xs">
+                {errors.map((error) => (
+                  <li key={error} className="text-xs">
                     {error}
                   </li>
                 ))}
@@ -537,56 +537,62 @@ export default function MovieTable({
       </CardHeader>
       <CardContent className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full rounded-md border border-white/5">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-neutral-800">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="border-white/10 hover:bg-transparent">
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id} className="text-slate-300 bg-neutral-800">
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
-                      </TableHead>
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-neutral-800">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
+                  className="border-white/10 hover:bg-transparent"
+                >
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="text-slate-300 bg-neutral-800"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="border-white/5 hover:bg-white/2"
+                    onMouseEnter={() =>
+                      row.original.processingState === "completed" &&
+                      handleRowHover(row.original.id)
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
                     ))}
                   </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="border-white/5 hover:bg-white/2"
-                      onMouseEnter={() =>
-                        row.original.processingState === "completed" &&
-                        handleRowHover(row.original.id)
-                      }
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext(),
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center text-slate-300"
-                    >
-                      No movies added.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-slate-300"
+                  >
+                    No movies added.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </ScrollArea>
       </CardContent>
     </Card>
