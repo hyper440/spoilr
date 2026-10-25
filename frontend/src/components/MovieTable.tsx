@@ -1,11 +1,14 @@
 import { type Movie, SpoilerService } from "@bindings/spoilr/backend";
 import {
   type ColumnDef,
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
+  rowSortingFeature,
   type SortingState,
-  useReactTable,
+  sortFn_alphanumeric,
+  sortFn_text,
+  tableFeatures,
+  useTable,
 } from "@tanstack/react-table";
 import {
   AlertCircle,
@@ -39,6 +42,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "@/contexts/LanguageContext";
+
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { alphanumeric: sortFn_alphanumeric, text: sortFn_text },
+});
 
 function TruncatedFileName({ fileName }: { fileName: string }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -248,7 +257,7 @@ export default function MovieTable({
     }
   };
 
-  const columns: ColumnDef<Movie>[] = [
+  const columns: ColumnDef<typeof features, Movie>[] = [
     {
       accessorKey: "fileName",
       header: ({ column }) => {
@@ -263,7 +272,7 @@ export default function MovieTable({
           </Button>
         );
       },
-      sortingFn: (rowA, rowB) => {
+      sortFn: (rowA, rowB) => {
         return rowA.original.fileName.localeCompare(
           rowB.original.fileName,
           undefined,
@@ -437,7 +446,8 @@ export default function MovieTable({
     },
   ];
 
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data: movies,
     columns,
     onSortingChange: (newSorting) => {
@@ -448,8 +458,6 @@ export default function MovieTable({
         );
       }
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     state: {
       sorting,
     },
@@ -571,7 +579,7 @@ export default function MovieTable({
                       handleRowHover(row.original.id)
                     }
                   >
-                    {row.getVisibleCells().map((cell) => (
+                    {row.getAllCells().map((cell) => (
                       <TableCell key={cell.id}>
                         {flexRender(
                           cell.column.columnDef.cell,
