@@ -1,10 +1,10 @@
 {
 	"fixed": {
-		"file_version": "1.7.1"
+		"file_version": "1.7.2"
 	},
 	"info": {
-		"0000": {
-			"ProductVersion": "1.7.1",
+		"0409": {
+			"ProductVersion": "1.7.2",
 			"CompanyName": "hyper440",
 			"FileDescription": "Generates spoilers for video files",
 			"LegalCopyright": "(c) 2026, hyper440",
